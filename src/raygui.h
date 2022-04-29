@@ -198,13 +198,13 @@
 #define RAYGUI_VERSION  "3.2-dev"
 
 #if !defined(RAYGUI_STANDALONE)
-    #include "raylib.h"
+#include "raylib.h"
 #endif
 
 // Function specifiers in case library is build/used as a shared library (Windows)
 // NOTE: Microsoft specifiers to tell compiler that symbols are imported/exported from a .dll
 #if defined(_WIN32)
-    #if defined(BUILD_LIBTYPE_SHARED)
+#if defined(BUILD_LIBTYPE_SHARED)
         #define RAYGUIAPI __declspec(dllexport)     // We are building the library as a Win32 shared library (.dll)
     #elif defined(USE_LIBTYPE_SHARED)
         #define RAYGUIAPI __declspec(dllimport)     // We are using the library as a Win32 shared library (.dll)
@@ -213,7 +213,7 @@
 
 // Function specifiers definition
 #ifndef RAYGUIAPI
-    #define RAYGUIAPI       // Functions defined as 'extern' by default (implicit specifiers)
+#define RAYGUIAPI       // Functions defined as 'extern' by default (implicit specifiers)
 #endif
 
 //----------------------------------------------------------------------------------
@@ -221,22 +221,22 @@
 //----------------------------------------------------------------------------------
 // Allow custom memory allocators
 #ifndef RAYGUI_MALLOC
-    #define RAYGUI_MALLOC(sz)       malloc(sz)
+#define RAYGUI_MALLOC(sz)       malloc(sz)
 #endif
 #ifndef RAYGUI_CALLOC
-    #define RAYGUI_CALLOC(n,sz)     calloc(n,sz)
+#define RAYGUI_CALLOC(n,sz)     calloc(n,sz)
 #endif
 #ifndef RAYGUI_FREE
-    #define RAYGUI_FREE(p)          free(p)
+#define RAYGUI_FREE(p)          free(p)
 #endif
 
 // Simple log system to avoid printf() calls if required
 // NOTE: Avoiding those calls, also avoids const strings memory usage
 #define RAYGUI_SUPPORT_LOG_INFO
 #if defined(RAYGUI_SUPPORT_LOG_INFO)
-  #define RAYGUI_LOG(...)           printf(__VA_ARGS__)
+#define RAYGUI_LOG(...)           printf(__VA_ARGS__)
 #else
-  #define RAYGUI_LOG(...)
+#define RAYGUI_LOG(...)
 #endif
 
 //----------------------------------------------------------------------------------
@@ -244,7 +244,7 @@
 // NOTE: Some types are required for RAYGUI_STANDALONE usage
 //----------------------------------------------------------------------------------
 #if defined(RAYGUI_STANDALONE)
-    #ifndef __cplusplus
+#ifndef __cplusplus
     // Boolean type
         #ifndef true
             typedef enum { false, true } bool;
@@ -465,6 +465,9 @@ typedef enum {
     HUEBAR_SELECTOR_OVERFLOW    // ColorPicker right hue bar selector overflow
 } GuiColorPickerProperty;
 
+// Gui control property style color element
+typedef enum { GUI_BORDER = 0, GUI_BASE, GUI_TEXT, GUI_OTHER } PublicGuiPropertyElement; ///< same as GuiPropertyElement
+
 #define SCROLLBAR_LEFT_SIDE     0
 #define SCROLLBAR_RIGHT_SIDE    1
 
@@ -490,6 +493,7 @@ RAYGUIAPI bool GuiIsLocked(void);                                       // Check
 RAYGUIAPI void GuiFade(float alpha);                                    // Set gui controls alpha (global state), alpha goes from 0.0f to 1.0f
 RAYGUIAPI void GuiSetState(int state);                                  // Set gui state (global state)
 RAYGUIAPI int GuiGetState(void);                                        // Get gui state (global state)
+RAYGUIAPI float GuiGetFade(void);                                       // Get gui state (global state)
 
 // Font set/get functions
 RAYGUIAPI void GuiSetFont(Font font);                                   // Set gui custom font (global state)
@@ -554,6 +558,20 @@ RAYGUIAPI void GuiSetIconScale(unsigned int scale);             // Set icon scal
 RAYGUIAPI void GuiSetIconPixel(int iconId, int x, int y);       // Set icon pixel value
 RAYGUIAPI void GuiClearIconPixel(int iconId, int x, int y);     // Clear icon pixel value
 RAYGUIAPI bool GuiCheckIconPixel(int iconId, int x, int y);     // Check icon pixel value
+
+//----------------------------------------------------------------------------------
+// Module specific Functions Declaration
+//----------------------------------------------------------------------------------
+RAYGUIAPI int GetTextWidth(const char* text);                  // Gui get text width using default font
+RAYGUIAPI Rectangle GetTextBounds(int control, Rectangle bounds); // Get text bounds considering control bounds
+RAYGUIAPI const char* GetTextIcon(const char* text, int* iconId); // Get text icon if provided and move text cursor
+
+RAYGUIAPI void GuiDrawText(const char* text, Rectangle bounds, int alignment, Color tint); // Gui draw text using default font
+RAYGUIAPI void GuiDrawRectangle(Rectangle rec, int borderWidth, Color borderColor, Color color); // Gui draw rectangle using default raygui style
+
+RAYGUIAPI const char** GuiTextSplit(const char* text, int* count, int* textRow); // Split controls text into multiple strings
+RAYGUIAPI Vector3 ConvertHSVtoRGB(Vector3 hsv);             // Convert color data from HSV to RGB
+RAYGUIAPI Vector3 ConvertRGBtoHSV(Vector3 rgb);             // Convert color data from RGB to HSV
 
 #if !defined(RAYGUI_CUSTOM_ICONS)
 //----------------------------------------------------------------------------------
@@ -1238,8 +1256,6 @@ static const char *CodepointToUTF8(int codepoint, int *byteSize);   // Encode co
 static void DrawRectangleGradientV(int posX, int posY, int width, int height, Color color1, Color color2);  // Draw rectangle vertical gradient
 //-------------------------------------------------------------------------------
 
-#endif      // RAYGUI_STANDALONE
-
 //----------------------------------------------------------------------------------
 // Module specific Functions Declaration
 //----------------------------------------------------------------------------------
@@ -1254,7 +1270,8 @@ static const char **GuiTextSplit(const char *text, int *count, int *textRow);   
 static Vector3 ConvertHSVtoRGB(Vector3 hsv);                    // Convert color data from HSV to RGB
 static Vector3 ConvertRGBtoHSV(Vector3 rgb);                    // Convert color data from RGB to HSV
 
-static int GuiScrollBar(Rectangle bounds, int value, int minValue, int maxValue);   // Scroll bar control, used by GuiScrollPanel()
+#endif      // RAYGUI_STANDALONE
+
 
 //----------------------------------------------------------------------------------
 // Gui Setup Functions Definition
@@ -1283,6 +1300,11 @@ void GuiFade(float alpha)
     else if (alpha > 1.0f) alpha = 1.0f;
 
     guiAlpha = alpha;
+}
+
+// Get gui controls alpha global state
+float GuiGetFade(void) {
+  return guiAlpha;
 }
 
 // Set gui state (global state)
@@ -1613,8 +1635,7 @@ void GuiLabel(Rectangle bounds, const char *text)
 }
 
 // Button control, returns true when clicked
-bool GuiButton(Rectangle bounds, const char *text)
-{
+bool GuiButton(Rectangle bounds, const char *text) {
     GuiControlState state = guiState;
     bool pressed = false;
 
@@ -2342,7 +2363,7 @@ bool GuiTextBoxMulti(Rectangle bounds, char *text, int textSize, bool editMode)
                     {
                         // Remove latest UTF-8 unicode character introduced (n bytes)
                         int charUTF8Length = 0;
-                        while (((unsigned char)text[textLength - 1 - charUTF8Length] & 0b01000000) == 0) charUTF8Length++;
+                        while (((unsigned char)text[textLength - 1 - charUTF8Length] & 0x40) == 0) charUTF8Length++;
 
                         textLength -= (charUTF8Length + 1);
                         text[textLength] = '\0';
@@ -3650,7 +3671,7 @@ void GuiDrawIcon(int iconId, int posX, int posY, int pixelSize, Color color)
 
     for (int i = 0, y = 0; i < RAYGUI_ICON_SIZE*RAYGUI_ICON_SIZE/32; i++)
     {
-        for (int k = 0; k < 32; k++)
+        for (unsigned int k = 0u; k < 32u; k++)
         {
             if (BIT_CHECK(guiIcons[iconId*RAYGUI_ICON_DATA_ELEMENTS + i], k))
             {
@@ -3730,7 +3751,7 @@ bool GuiCheckIconPixel(int iconId, int x, int y)
 // Module specific Functions Definition
 //----------------------------------------------------------------------------------
 // Gui get text width considering icon
-static int GetTextWidth(const char *text)
+int GetTextWidth(const char *text)
 {
     Vector2 size = { 0 };
     int textIconOffset = 0;
@@ -3757,7 +3778,7 @@ static int GetTextWidth(const char *text)
 }
 
 // Get text bounds considering control bounds
-static Rectangle GetTextBounds(int control, Rectangle bounds)
+Rectangle GetTextBounds(int control, Rectangle bounds)
 {
     Rectangle textBounds = bounds;
 
@@ -3786,7 +3807,7 @@ static Rectangle GetTextBounds(int control, Rectangle bounds)
 
 // Get text icon if provided and move text cursor
 // NOTE: We support up to 999 values for iconId
-static const char *GetTextIcon(const char *text, int *iconId)
+const char *GetTextIcon(const char *text, int *iconId)
 {
 #if !defined(RAYGUI_NO_ICONS)
     *iconId = -1;
@@ -3816,7 +3837,7 @@ static const char *GetTextIcon(const char *text, int *iconId)
 }
 
 // Gui draw text using default font
-static void GuiDrawText(const char *text, Rectangle bounds, int alignment, Color tint)
+void GuiDrawText(const char *text, Rectangle bounds, int alignment, Color tint)
 {
     #define TEXT_VALIGN_PIXEL_OFFSET(h)  ((int)h%2)     // Vertical alignment for pixel perfect
 
@@ -3888,10 +3909,12 @@ static void GuiDrawText(const char *text, Rectangle bounds, int alignment, Color
         DrawTextEx(guiFont, text, position, (float)GuiGetStyle(DEFAULT, TEXT_SIZE), (float)GuiGetStyle(DEFAULT, TEXT_SPACING), tint);
         //---------------------------------------------------------------------------------
     }
+
+    #undef TEXT_VALIGN_PIXEL_OFFSET
 }
 
 // Gui draw rectangle using default raygui plain style with borders
-static void GuiDrawRectangle(Rectangle rec, int borderWidth, Color borderColor, Color color)
+void GuiDrawRectangle(Rectangle rec, int borderWidth, Color borderColor, Color color)
 {
     if (color.a > 0)
     {
@@ -3911,7 +3934,7 @@ static void GuiDrawRectangle(Rectangle rec, int borderWidth, Color borderColor, 
 
 // Split controls text into multiple strings
 // Also check for multiple columns (required by GuiToggleGroup())
-static const char **GuiTextSplit(const char *text, int *count, int *textRow)
+const char **GuiTextSplit(const char *text, int *count, int *textRow)
 {
     // NOTE: Current implementation returns a copy of the provided string with '\0' (string end delimiter)
     // inserted between strings defined by "delimiter" parameter. No memory is dynamically allocated,
@@ -3965,7 +3988,7 @@ static const char **GuiTextSplit(const char *text, int *count, int *textRow)
 
 // Convert color data from RGB to HSV
 // NOTE: Color data should be passed normalized
-static Vector3 ConvertRGBtoHSV(Vector3 rgb)
+Vector3 ConvertRGBtoHSV(Vector3 rgb)
 {
     Vector3 hsv = { 0 };
     float min = 0.0f;
@@ -4018,7 +4041,7 @@ static Vector3 ConvertRGBtoHSV(Vector3 rgb)
 
 // Convert color data from HSV to RGB
 // NOTE: Color data should be passed normalized
-static Vector3 ConvertHSVtoRGB(Vector3 hsv)
+Vector3 ConvertHSVtoRGB(Vector3 hsv)
 {
     Vector3 rgb = { 0 };
     float hh = 0.0f, p = 0.0f, q = 0.0f, t = 0.0f, ff = 0.0f;
@@ -4088,7 +4111,7 @@ static Vector3 ConvertHSVtoRGB(Vector3 hsv)
 }
 
 // Scroll bar control (used by GuiScrollPanel())
-static int GuiScrollBar(Rectangle bounds, int value, int minValue, int maxValue)
+int GuiScrollBar(Rectangle bounds, int value, int minValue, int maxValue)
 {
     GuiControlState state = guiState;
 
