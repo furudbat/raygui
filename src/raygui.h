@@ -3680,6 +3680,8 @@ void GuiDrawIcon(int iconId, Vector2 position, int pixelSize, Color color)
             if ((k == 15) || (k == 31)) y++;
         }
     }
+
+    #undef BIT_CHECK
 }
 
 // Get icon bit data
@@ -3709,6 +3711,8 @@ void GuiSetIconPixel(int iconId, int x, int y)
     // This logic works for any RICON_SIZE pixels icons,
     // For example, in case of 16x16 pixels, every 2 lines fit in one unsigned int data element
     BIT_SET(guiIcons[iconId*RICON_DATA_ELEMENTS + y/(sizeof(unsigned int)*8/RICON_SIZE)], x + (y%(sizeof(unsigned int)*8/RICON_SIZE)*RICON_SIZE));
+
+    #undef BIT_SET
 }
 
 // Clear icon pixel value
@@ -3719,6 +3723,8 @@ void GuiClearIconPixel(int iconId, int x, int y)
     // This logic works for any RICON_SIZE pixels icons,
     // For example, in case of 16x16 pixels, every 2 lines fit in one unsigned int data element
     BIT_CLEAR(guiIcons[iconId*RICON_DATA_ELEMENTS + y/(sizeof(unsigned int)*8/RICON_SIZE)], x + (y%(sizeof(unsigned int)*8/RICON_SIZE)*RICON_SIZE));
+
+    #undef BIT_CLEAR
 }
 
 // Check icon pixel value
@@ -3727,6 +3733,8 @@ bool GuiCheckIconPixel(int iconId, int x, int y)
     #define BIT_CHECK(a,b) ((a) & (1u<<(b)))
 
     return (BIT_CHECK(guiIcons[iconId*8 + y/2], x + (y%2*16)));
+
+    #undef BIT_CHECK
 }
 #endif      // RAYGUI_SUPPORT_RICONS
 
