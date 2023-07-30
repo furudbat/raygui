@@ -1,3 +1,25 @@
+/**
+*   LICENSE: zlib/libpng
+*
+*   Copyright (c) 2021-2023 furudbat
+*
+*   This software is provided "as-is", without any express or implied warranty. In no event
+*   will the authors be held liable for any damages arising from the use of this software.
+*
+*   Permission is granted to anyone to use this software for any purpose, including commercial
+*   applications, and to alter it and redistribute it freely, subject to the following restrictions:
+*
+*     1. The origin of this software must not be misrepresented; you must not claim that you
+*     wrote the original software. If you use this software in a product, an acknowledgment
+*     in the product documentation would be appreciated but is not required.
+*
+*     2. Altered source versions must be plainly marked as such, and must not be misrepresented
+*     as being the original software.
+*
+*     3. This notice may not be removed or altered from any source distribution.
+*
+*/
+
 #ifndef RAYGUI_EXTRAS_H
 #define RAYGUI_EXTRAS_H
 
@@ -210,8 +232,8 @@ int GuiButtonEx(Rectangle bounds, const char* text, bool focused)
 
   // Draw control
   //--------------------------------------------------------------------
-  GuiDrawRectangle(bounds, GuiGetStyle(BUTTON, BORDER_WIDTH), Fade(GetColor(GuiGetStyle(BUTTON, GUI_BORDER + (state*3))), GuiGetFade()), Fade(GetColor(GuiGetStyle(BUTTON, GUI_BASE + (state*3))), GuiGetFade()));
-  GuiDrawText(text, GetTextBounds(BUTTON, bounds), GuiGetStyle(BUTTON, TEXT_ALIGNMENT), Fade(GetColor(GuiGetStyle(BUTTON, GUI_TEXT + (state*3))), GuiGetFade()));
+  GuiDrawRectangle(bounds, GuiGetStyle(BUTTON, BORDER_WIDTH), Fade(GetColor(GuiGetStyle(BUTTON, GUI_BORDER + (state*3))), GuiGetAlpha()), Fade(GetColor(GuiGetStyle(BUTTON, GUI_BASE + (state*3))), GuiGetAlpha()));
+  GuiDrawText(text, GetTextBounds(BUTTON, bounds), GuiGetStyle(BUTTON, TEXT_ALIGNMENT), Fade(GetColor(GuiGetStyle(BUTTON, GUI_TEXT + (state*3))), GuiGetAlpha()));
 
   if (state == STATE_FOCUSED) GuiTooltip(bounds);
   //------------------------------------------------------------------
@@ -268,7 +290,7 @@ int GuiCheckBoxEx(Rectangle bounds, const char* text, bool* checked, bool focuse
 
   // Draw control
   //--------------------------------------------------------------------
-  GuiDrawRectangle(bounds, GuiGetStyle(CHECKBOX, BORDER_WIDTH), Fade(GetColor(GuiGetStyle(CHECKBOX, GUI_BORDER + (state*3))), GuiGetFade()), BLANK);
+  GuiDrawRectangle(bounds, GuiGetStyle(CHECKBOX, BORDER_WIDTH), Fade(GetColor(GuiGetStyle(CHECKBOX, GUI_BORDER + (state*3))), GuiGetAlpha()), BLANK);
 
   if (*checked)
   {
@@ -276,11 +298,11 @@ int GuiCheckBoxEx(Rectangle bounds, const char* text, bool* checked, bool focuse
                           bounds.y + GuiGetStyle(CHECKBOX, BORDER_WIDTH) + GuiGetStyle(CHECKBOX, CHECK_PADDING),
                           bounds.width - 2*(GuiGetStyle(CHECKBOX, BORDER_WIDTH) + GuiGetStyle(CHECKBOX, CHECK_PADDING)),
                           bounds.height - 2*(GuiGetStyle(CHECKBOX, BORDER_WIDTH) + GuiGetStyle(CHECKBOX, CHECK_PADDING)) };
-      GuiDrawRectangle(check, 0, BLANK, Fade(GetColor(GuiGetStyle(CHECKBOX, GUI_TEXT + state*3)), GuiGetFade()));
+      GuiDrawRectangle(check, 0, BLANK, Fade(GetColor(GuiGetStyle(CHECKBOX, GUI_TEXT + state*3)), GuiGetAlpha()));
       result = 1;
   }
 
-  GuiDrawText(text, textBounds, (GuiGetStyle(CHECKBOX, TEXT_ALIGNMENT) == TEXT_ALIGN_RIGHT)? TEXT_ALIGN_LEFT : TEXT_ALIGN_RIGHT, Fade(GetColor(GuiGetStyle(LABEL, GUI_TEXT + (state*3))), GuiGetFade()));
+  GuiDrawText(text, textBounds, (GuiGetStyle(CHECKBOX, TEXT_ALIGNMENT) == TEXT_ALIGN_RIGHT)? TEXT_ALIGN_LEFT : TEXT_ALIGN_RIGHT, Fade(GetColor(GuiGetStyle(LABEL, GUI_TEXT + (state*3))), GuiGetAlpha()));
   //--------------------------------------------------------------------
 
   return result;
@@ -314,7 +336,7 @@ int GuiPrevDropdownItem(const char* text, int* active) {
 int GuiTextBoxReadOnly(Rectangle bounds, const char* text) {
   int result = 0;
   GuiState state = (GuiState)GuiGetState();
-  float guiAlpha = GuiGetFade();
+  float guiAlpha = GuiGetAlpha();
 
   Rectangle textBounds = GetTextBounds(TEXTBOX, bounds);
   int textWidth = GetTextWidth(text) - GetTextWidth(text + textBoxCursorIndex);
@@ -474,7 +496,7 @@ int GuiTextBoxPlaceholder(Rectangle bounds, char *text, int textSize, bool editM
   if(empty_text)
   {
     GuiDrawText(placeholder, GetTextBounds(TEXTBOX, bounds), GuiGetStyle(TEXTBOX, TEXT_ALIGNMENT),
-                Fade(GetColor(GuiGetStyle(TEXTBOX, GUI_TEXT + (state * 3))), GuiGetFade() * 0.75F));
+                Fade(GetColor(GuiGetStyle(TEXTBOX, GUI_TEXT + (state * 3))), GuiGetAlpha() * 0.75F));
   }
   return result;
 }
@@ -484,7 +506,7 @@ void GuiDebugLayoutRecs(const Rectangle* layoutRecs, unsigned int layoutRecsSize
     const Vector2 mousePoint = GetMousePosition();
     const bool oldLock = GuiIsLocked();
     const int oldState = GuiGetState();
-    const float oldFade = GuiGetFade();
+    const float oldFade = GuiGetAlpha();
     const bool isLongInfo = IsKeyDown(KEY_F4);
     GuiLock();
     for (unsigned int i = 0; i < layoutRecsSize; i++) {
@@ -690,7 +712,7 @@ int GuiListViewRenderEx(Rectangle bounds, const char **text, int count, int *scr
 {
     int result = 0;
     GuiState state = (GuiState)GuiGetState();
-    const float guiAlpha = GuiGetFade();
+    const float guiAlpha = GuiGetAlpha();
 
     // Check if we need a scroll bar
     bool useScrollBar = false;
@@ -781,7 +803,7 @@ int GuiListViewRenderEx(Rectangle bounds, const char **text, int count, int *scr
 int GuiLabelButtonEx(Rectangle bounds, const char *text, bool focused)
 {
     GuiState state = (GuiState)GuiGetState();
-    const float guiAlpha = GuiGetFade();
+    const float guiAlpha = GuiGetAlpha();
     int result = 0;
 
     // NOTE: We force bounds.width to be all text
@@ -819,7 +841,7 @@ int GuiLabelButtonEx(Rectangle bounds, const char *text, bool focused)
 int GuiLabelButtonExActive(Rectangle bounds, const char *text, bool focused, bool active)
 {
     GuiState state = (GuiState)GuiGetState();
-    float guiAlpha = GuiGetFade();
+    float guiAlpha = GuiGetAlpha();
     int result = 0;
 
     // NOTE: We force bounds.width to be all text
