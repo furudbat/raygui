@@ -2875,7 +2875,7 @@ int GuiProgressBar(Rectangle bounds, const char *textLeft, const char *textRight
             GuiDrawRectangle(RAYGUI_CLITERAL(Rectangle){ bounds.x + (int)progress.width + 1, bounds.y + bounds.height - 1, bounds.width - (int)progress.width - 1, (float)GuiGetStyle(PROGRESSBAR, BORDER_WIDTH) }, 0, BLANK, GetColor(GuiGetStyle(PROGRESSBAR, BORDER_COLOR_NORMAL)));
             GuiDrawRectangle(RAYGUI_CLITERAL(Rectangle){ bounds.x + bounds.width - 1, bounds.y + 1, (float)GuiGetStyle(PROGRESSBAR, BORDER_WIDTH), bounds.height - 2 }, 0, BLANK, GetColor(GuiGetStyle(PROGRESSBAR, BORDER_COLOR_NORMAL)));
         }
-            
+
         // Draw slider internal progress bar (depends on state)
         GuiDrawRectangle(progress, 0, BLANK, GetColor(GuiGetStyle(PROGRESSBAR, BASE_COLOR_PRESSED)));
     }
@@ -3409,7 +3409,7 @@ int GuiColorPicker(Rectangle bounds, const char *text, Color *color)
 int GuiColorPickerHSV(Rectangle bounds, const char *text, Vector3 *colorHsv)
 {
     int result = 0;
-    
+
     Vector3 tempHsv = { 0 };
 
     if (colorHsv == NULL)
@@ -3518,7 +3518,7 @@ int GuiMessageBox(Rectangle bounds, const char *title, const char *message, cons
     buttonBounds.width = (bounds.width - RAYGUI_MESSAGEBOX_BUTTON_PADDING*(buttonCount + 1))/buttonCount;
     buttonBounds.height = RAYGUI_MESSAGEBOX_BUTTON_HEIGHT;
 
-    int textWidth = GetTextWidth(message);
+    int textWidth = GetTextWidth(message) + 2;
 
     Rectangle textBounds = { 0 };
     textBounds.x = bounds.x + bounds.width/2 - textWidth/2;
@@ -4054,7 +4054,7 @@ void GuiDrawIcon(int iconId, int posX, int posY, int pixelSize, Color color)
             if (BIT_CHECK(guiIconsPtr[iconId*RAYGUI_ICON_DATA_ELEMENTS + i], k))
             {
             #if !defined(RAYGUI_STANDALONE)
-                GuiDrawRectangle((Rectangle){ posX + (k%RAYGUI_ICON_SIZE)*pixelSize, posY + y*pixelSize, pixelSize, pixelSize }, 0, BLANK, color);
+                GuiDrawRectangle(RAYGUI_CLITERAL(Rectangle){ (float)posX + (k%RAYGUI_ICON_SIZE)*pixelSize, (float)posY + y*pixelSize, (float)pixelSize, (float)pixelSize }, 0, BLANK, color);
             #endif
             }
 
@@ -4538,6 +4538,129 @@ void GuiDrawText(const char *text, Rectangle bounds, int alignment, Color tint)
             for (int c = 0; (lines[i][c] != '\0') && (lines[i][c] != '\n'); c++, lineSize++){ }
             float scaleFactor = (float)GuiGetStyle(DEFAULT, TEXT_SIZE)/guiFont.baseSize;
 
+            /*
+            // TODO: WARNING: For wordwrap, text must be measured from space to space before being drawn!
+            int wrapModeState = 0;  // 0-TEXT_MEASURING, 1-TEXT_DRAWING
+
+            float textOffsetY = 0.0f;   // Offset between wordwrap lines
+            float textOffsetX = 0.0f;   // Offset X to next character to draw
+
+            int startLine = -1;         // Index where to begin drawing (where a line begins)
+            int endLine = -1;           // Index where to stop drawing (where a line ends)
+            int lastk = -1;             // Holds last value of the character position
+
+            for (int i = 0, k = 0; i < lineSize; i++, k++)
+            {
+                // Get next codepoint from byte string and glyph index in font
+                int codepointByteCount = 0;
+                int codepoint = GetCodepoint(&text[i], &codepointByteCount);
+                int index = GetGlyphIndex(guiFont, codepoint);
+
+                // NOTE: Normally we exit the decoding sequence as soon as a bad byte is found (and return 0x3f)
+                // but we need to draw all of the bad bytes using the '?' symbol moving one byte
+                if (codepoint == 0x3f) codepointByteCount = 1;
+                i += (codepointByteCount - 1);
+
+                float glyphWidth = 0;
+                if (codepoint != '\n')
+                {
+                    glyphWidth = (guiFont.glyphs[index].advanceX == 0)? guiFont.recs[index].width*scaleFactor : guiFont.glyphs[index].advanceX*scaleFactor;
+
+                    if (i + 1 < lineSize) glyphWidth = glyphWidth + (float)GuiGetStyle(DEFAULT, TEXT_SPACING);
+                }
+
+                // NOTE: When wordWrap is ON we first measure how much of the text we can draw before going outside of the rec container
+                // We store this info in startLine and endLine, then we change states, draw the text between those two variables
+                // and change states again and again recursively until the end of the text (or until we get outside of the container).
+                // When wordWrap is OFF we don't need the measure state so we go to the drawing state immediately
+                // and begin drawing on the next line before we can get outside the container.
+                if (wrapModeState == 0)     // TEXT_MEASURING
+                {
+                    // TODO: There are multiple types of spaces in UNICODE, maybe it's a good idea to add support for more
+                    // Ref: http://jkorpela.fi/chars/spaces.html
+                    if ((codepoint == ' ') || (codepoint == '\t') || (codepoint == '\n')) endLine = i;
+
+                    if ((textOffsetX + glyphWidth) > bounds.width)
+                    {
+                        endLine = (endLine < 1)? i : endLine;
+                        if (i == endLine) endLine -= codepointByteCount;
+                        if ((startLine + codepointByteCount) == endLine) endLine = (i - codepointByteCount);
+
+                        wrapModeState = !wrapModeState;
+                    }
+                    else if ((i + 1) == lineSize)
+                    {
+                        endLine = i;
+                        wrapModeState = !wrapModeState;
+                    }
+                    //else if (codepoint == '\n') state = !state;
+
+                    if (wrapModeState == 1)     // TEXT_DRAWING
+                    {
+                        textOffsetX = 0;
+                        i = startLine;
+                        glyphWidth = 0;
+
+                        // Save character position when we switch states
+                        int tmp = lastk;
+                        lastk = k - 1;
+                        k = tmp;
+                    }
+                }
+                else
+                {
+                    if (codepoint == '\n')
+                    {
+                        if (wrapMode != 2)      // WORD_WRAP
+                        {
+                            textOffsetY += (guiFont.baseSize + guiFont.baseSize/2)*scaleFactor;
+                            textOffsetX = 0;
+                        }
+                    }
+                    else
+                    {
+                        if ((wrapMode == 1) && ((textOffsetX + glyphWidth) > bounds.width))     // CHAR_WRAP
+                        {
+                            textOffsetY += (guiFont.baseSize + guiFont.baseSize/2)*scaleFactor;
+                            textOffsetX = 0;
+                        }
+
+                        // When text overflows rectangle height limit, just stop drawing
+                        if ((textOffsetY + guiFont.baseSize*scaleFactor) > bounds.height) break;
+
+                        // Draw text selected background
+                        //bool isGlyphSelected = false;
+                        //if ((selectStart >= 0) && (k >= selectStart) && (k < (selectStart + selectLength)))
+                        //{
+                        //    DrawRectangleRec((Rectangle){ rec.x + textOffsetX - 1, rec.y + textOffsetY, glyphWidth, (float)font.baseSize*scaleFactor }, selectBackTint);
+                        //    isGlyphSelected = true;
+                        //}
+
+                        // Draw current character glyph
+                        if ((codepoint != ' ') && (codepoint != '\t'))
+                        {
+                            DrawTextCodepoint(guiFont, codepoint, RAYGUI_CLITERAL(Vector2){ boundsPos.x + textOffsetX, boundsPos.y + textOffsetY }, (float)GuiGetStyle(DEFAULT, TEXT_SIZE), tint);  // isGlyphSelected? selectTint : tint);
+                        }
+                    }
+
+                    if ((wrapMode == 2) && (i == endLine))      // WORD_WRAP
+                    {
+                        textOffsetY += (guiFont.baseSize + guiFont.baseSize/2)*scaleFactor;
+                        textOffsetX = 0;
+                        startLine = endLine;
+                        endLine = -1;
+                        glyphWidth = 0;
+                        //selectStart += lastk - k;
+                        k = lastk;
+
+                        wrapModeState = !wrapModeState;
+                    }
+                }
+
+                if ((textOffsetX != 0) || (codepoint != ' ')) textOffsetX += glyphWidth;  // Avoid leading spaces
+            }
+            */
+
             int lastSpacePos = 0;
             int textOffsetY = 0;
             float textOffsetX = 0.0f;
@@ -4581,7 +4704,7 @@ void GuiDrawText(const char *text, Rectangle bounds, int alignment, Color tint)
                         }
                         else if (wrapMode == 2)     // 2-WORD_WRAP
                         {
-                            // TODO: Word wrap mode requires previously measured text to last space! 
+                            // TODO: Word wrap mode requires previously measured text to last space!
                         }
                     }
                     else lastSpacePos = c;
@@ -4892,14 +5015,16 @@ int GuiScrollBar(Rectangle bounds, int value, int minValue, int maxValue)
 
         if (guiSliderDragging) // Keep dragging outside of bounds
         {
-            if (IsMouseButtonDown(MOUSE_LEFT_BUTTON))
+            if (IsMouseButtonDown(MOUSE_LEFT_BUTTON) &&
+                !CheckCollisionPointRec(mousePoint, arrowUpLeft) &&
+                !CheckCollisionPointRec(mousePoint, arrowDownRight))
             {
                 if (CHECK_BOUNDS_ID(bounds, guiSliderActive))
                 {
                     state = STATE_PRESSED;
 
-                    if (isVertical) value += (int)(GetMouseDelta().y/(scrollbar.height - slider.height)*valueRange);
-                    else value += (int)(GetMouseDelta().x/(scrollbar.width - slider.width)*valueRange);
+                    if (isVertical) value = (int)(((float)(mousePoint.y - scrollbar.y - slider.height/2)*valueRange)/(scrollbar.height - slider.height) + minValue);
+                    else value = (int)(((float)(mousePoint.x - scrollbar.x - slider.width/2)*valueRange)/(scrollbar.width - slider.width) + minValue);
                 }
             }
             else
@@ -4933,11 +5058,6 @@ int GuiScrollBar(Rectangle bounds, int value, int minValue, int maxValue)
                 }
 
                 state = STATE_PRESSED;
-            }
-            else if (IsMouseButtonDown(MOUSE_LEFT_BUTTON))
-            {
-                if (isVertical) value += (int)(GetMouseDelta().y/(scrollbar.height - slider.height)*valueRange);
-                else value += (int)(GetMouseDelta().x/(scrollbar.width - slider.width)*valueRange);
             }
 
             // Keyboard control on mouse hover scrollbar
