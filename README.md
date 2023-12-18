@@ -12,7 +12,9 @@
 
 **WARNING: Latest `raygui` from master branch is always aligned with latest `raylib` from master branch. Make sure to use the appropiate versions.**
 
-**WARNING: Master branch now contains raygui 4.0-dev, it is an API-BREAKING redesign from previous versions (3.x), now all functions are more consistent and coherent, you can read the details about this breaking change in issue [283](https://github.com/raysan5/raygui/issues/283)**
+**WARNING: Latest `raygui 4.0` is an API-BREAKING redesign from previous versions (3.x), now all functions are more consistent and coherent, you can read the details about this breaking change in issue [283](https://github.com/raysan5/raygui/issues/283)**
+
+*NOTE: raygui is a single-file header-only library (despite its internal dependency on raylib), so, functions definition AND implementation reside in the same file `raygui.h`, when including `raygui.h` in a module, `RAYGUI_IMPLEMENTATION` must be previously defined to include the implementation part of `raygui.h` BUT only in one compilation unit, other modules could also include `raygui.h` but `RAYGUI_IMPLEMENTATION` must not be defined again.*
 
 ## features
 
@@ -27,13 +29,13 @@
 
 ### basic controls
 ```
-Label       |  Button      |  LabelButton |  Toggle       |  ToggleGroup |  CheckBox
-ComboBox    |  DropdownBox |  TextBox     |  ValueBox     |  Spinner
-Slider      |  SliderBar   |  ProgressBar |  StatusBar    |  DummyRec    |  Grid
+Label       |  Button      |  LabelButton |  Toggle      |  ToggleGroup  |  ToggleSlider
+CheckBox    | ComboBox     |  DropdownBox |  TextBox     |  ValueBox     |  Spinner
+Slider      |  SliderBar   |  ProgressBar |  StatusBar   |  DummyRec     |  Grid
 ```
 ### container/separator controls
 ```
-WindowBox   |  GroupBox    |  Line        |  Panel        |  ScrollPanel  | TabBar
+WindowBox   |  GroupBox    |  Line        |  Panel       |  ScrollPanel  | TabBar
 ```
 ### advanced controls
 ```
@@ -45,7 +47,7 @@ ListView    |  ColorPicker |  MessageBox  |  TextInputBox
 
 `raygui` comes with a [default](styles/default) style automatically loaded at runtime:
 
-![raygui default style](styles/default/style_table.png)
+![raygui default style](styles/default/style_default.png)
 
 Some additional styles are also provided for convenience, just check [styles directory](styles) for details:
 
@@ -97,7 +99,7 @@ gcc -o src/raygui.dll src/raygui.c -shared -DRAYGUI_IMPLEMENTATION -DBUILD_LIBTY
 
  - **Windows (MSVC)**
 ```
-copy src\raylib.h src\raylib.c
+copy src\raygui.h src\raygui.c
 cl /O2 /I../raylib/src/ /D_USRDLL /D_WINDLL /DRAYGUI_IMPLEMENTATION /DBUILD_LIBTYPE_SHARED src/raygui.c /LD /Feraygui.dll /link /LIBPATH ../raylib/build/raylib/Release/raylib.lib /subsystem:windows /machine:x64
 ```
 
