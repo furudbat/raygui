@@ -672,8 +672,8 @@ RAYGUIAPI bool GuiIsLocked(void);                               // Check if gui 
 RAYGUIAPI void GuiSetAlpha(float alpha);                        // Set gui controls alpha (global state), alpha goes from 0.0f to 1.0f
 RAYGUIAPI void GuiSetState(int state);                          // Set gui state (global state)
 RAYGUIAPI int GuiGetState(void);                                // Get gui state (global state)
-RAYGUIAPI float GuiGetAlpha(void);                               // Get gui fade (global state)
-RAYGUIAPI bool GuiSliderIsDragging(void);                       // Get gui slider drag (global state)
+RAYGUIAPI float GuiGetAlpha(void);                              // Get gui fade (global state)
+RAYGUIAPI bool GuiControlExclusiveMode(void);                   // Get gui control exclusive mode (no inputs processed except current control) (global state)
 
 // Font set/get functions
 RAYGUIAPI void GuiSetFont(Font font);                           // Set gui custom font (global state)
@@ -1387,7 +1387,7 @@ static unsigned int guiIconScale = 1;           // Gui icon default scale (if ic
 static bool guiTooltip = false;                 // Tooltip enabled/disabled
 static const char *guiTooltipPtr = NULL;        // Tooltip string pointer (string provided by user)
 
-static bool guiControlExclusiveMode = false;    // Gui control exclusive mode (no inputs processed except current control)
+static bool guiControlExclusiveMode = false;     // Gui control exclusive mode (no inputs processed except current control)
 static Rectangle guiControlExclusiveRec = { 0 }; // Gui control exclusive bounds rectangle, used as an unique identifier
 
 static int textBoxCursorIndex = 0;              // Cursor index, shared by all GuiTextBox*()
@@ -1516,8 +1516,8 @@ void GuiSetAlpha(float alpha)
 // Get gui controls alpha global state
 float GuiGetAlpha(void) { return guiAlpha; }
 
-// Get gui slider drag state (no inputs processed except dragged slider)
-bool GuiSliderIsDragging(void) { return guiSliderDragging; }
+// Gui control exclusive mode (no inputs processed except current control)
+bool GuiControlExclusiveMode(void) { return guiControlExclusiveMode; }
 
 // Set gui state (global state)
 void GuiSetState(int state) { guiState = (GuiState)state; }
