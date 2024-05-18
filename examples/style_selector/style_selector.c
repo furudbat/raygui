@@ -11,7 +11,7 @@
 *
 *   LICENSE: zlib/libpng
 *
-*   Copyright (c) 2016-2023 Ramon Santamaria (@raysan5)
+*   Copyright (c) 2016-2024 Ramon Santamaria (@raysan5)
 *
 **********************************************************************************************/
 
@@ -23,12 +23,19 @@
 #include "../../src/raygui.h"
 
 // raygui embedded styles
-#include "../styles/style_cyber.h"       // raygui style: cyber
-#include "../styles/style_jungle.h"      // raygui style: jungle
-#include "../styles/style_lavanda.h"     // raygui style: lavanda
-#include "../styles/style_dark.h"        // raygui style: dark
-#include "../styles/style_bluish.h"      // raygui style: bluish
-#include "../styles/style_terminal.h"    // raygui style: terminal
+// NOTE: Included in the same order as selector
+#define MAX_GUI_STYLES_AVAILABLE   12       // NOTE: Included light style
+#include "../styles/style_jungle.h"            // raygui style: jungle
+#include "../styles/style_candy.h"             // raygui style: candy
+#include "../styles/style_lavanda.h"           // raygui style: lavanda
+#include "../styles/style_cyber.h"             // raygui style: cyber
+#include "../styles/style_terminal.h"          // raygui style: terminal
+#include "../styles/style_ashes.h"             // raygui style: ashes
+#include "../styles/style_bluish.h"            // raygui style: bluish
+#include "../styles/style_dark.h"              // raygui style: dark
+#include "../styles/style_cherry.h"            // raygui style: cherry
+#include "../styles/style_sunny.h"             // raygui style: sunny
+#include "../styles/style_enefete.h"           // raygui style: enefete
 
 #include <string.h>             // Required for: strcpy()
 
@@ -39,10 +46,10 @@ int main()
 {
     // Initialization
     //---------------------------------------------------------------------------------------
-    const int screenWidth = 690;
-    const int screenHeight = 560;
+    const int screenWidth = 800;
+    const int screenHeight = 480;
 
-    InitWindow(screenWidth, screenHeight, "raygui - controls test suite");
+    InitWindow(screenWidth, screenHeight, "raygui - styles selector");
     SetExitKey(0);
 
     // Custom GUI font loading
@@ -51,11 +58,6 @@ int main()
 
     bool exitWindow = false;
     bool showMessageBox = false;
-
-    char textInput[256] = { 0 };
-    bool showTextInputBox = false;
-
-    char textInputFileName[256] = { 0 };
 
     // Load default style
     GuiLoadStyleBluish();
@@ -74,8 +76,6 @@ int main()
 
         if (IsKeyPressed(KEY_ESCAPE)) showMessageBox = !showMessageBox;
 
-        if (IsKeyDown(KEY_LEFT_CONTROL) && IsKeyPressed(KEY_S)) showTextInputBox = true;
-
         if (IsFileDropped())
         {
             FilePathList droppedFiles = LoadDroppedFiles();
@@ -87,21 +87,25 @@ int main()
 
         if (visualStyleActive != prevVisualStyleActive)
         {
+            // Reset to default internal style
+            // NOTE: Required to unload any previously loaded font texture
             GuiLoadStyleDefault();
 
             switch (visualStyleActive)
             {
-                case 0: break;      // Default style
                 case 1: GuiLoadStyleJungle(); break;
-                case 2: GuiLoadStyleLavanda(); break;
-                case 3: GuiLoadStyleDark(); break;
-                case 4: GuiLoadStyleBluish(); break;
-                case 5: GuiLoadStyleCyber(); break;
-                case 6: GuiLoadStyleTerminal(); break;
+                case 2: GuiLoadStyleCandy(); break;
+                case 3: GuiLoadStyleLavanda(); break;
+                case 4: GuiLoadStyleCyber(); break;
+                case 5: GuiLoadStyleTerminal(); break;
+                case 6: GuiLoadStyleAshes(); break;
+                case 7: GuiLoadStyleBluish(); break;
+                case 8: GuiLoadStyleDark(); break;
+                case 9: GuiLoadStyleCherry(); break;
+                case 10: GuiLoadStyleSunny(); break;
+                case 11: GuiLoadStyleEnefete(); break;
                 default: break;
             }
-
-            GuiSetStyle(LABEL, TEXT_ALIGNMENT, TEXT_ALIGN_LEFT);
 
             prevVisualStyleActive = visualStyleActive;
         }
@@ -115,12 +119,17 @@ int main()
 
             // Visuals options
             GuiLabel((Rectangle){ 10, 10, 60, 24 }, "Style:");
-            GuiComboBox((Rectangle){ 60,10, 120, 24 }, "default;Jungle;Lavanda;Dark;Bluish;Cyber;Terminal", &visualStyleActive);
+            GuiComboBox((Rectangle){ 60,10, 120, 24 }, "default;Jungle;Candy;Lavanda;Cyber;Terminal;Ashes;Bluish;Dark;Cherry;Sunny;Enefete", &visualStyleActive);
 
-            GuiSetIconScale(2);
-            GuiSetStyle(BUTTON, TEXT_ALIGNMENT, TEXT_ALIGN_RIGHT);
-            GuiButton((Rectangle){ 25, 255, 300, 30 }, GuiIconText(ICON_FILE_SAVE, "Save File"));
-            GuiSetStyle(BUTTON, TEXT_ALIGNMENT, TEXT_ALIGN_CENTER);
+            DrawRectangle(10, 44, GuiGetFont().texture.width, GuiGetFont().texture.height, BLACK);
+            DrawTexture(GuiGetFont().texture, 10, 44, WHITE);
+            DrawRectangleLines(10, 44, GuiGetFont().texture.width, GuiGetFont().texture.height,
+                GetColor(GuiGetStyle(DEFAULT, LINE_COLOR)));
+
+            //GuiSetIconScale(2);
+            //GuiSetStyle(BUTTON, TEXT_ALIGNMENT, TEXT_ALIGN_RIGHT);
+            //GuiButton((Rectangle){ 25, 255, 300, 30 }, GuiIconText(ICON_FILE_SAVE, "Save File"));
+            //GuiSetStyle(BUTTON, TEXT_ALIGNMENT, TEXT_ALIGN_CENTER);
             //----------------------------------------------------------------------------------
 
         EndDrawing();

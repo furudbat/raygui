@@ -337,7 +337,7 @@ endif
 ifeq ($(PLATFORM),PLATFORM_RPI)
     # Libraries for Raspberry Pi compiling
     # NOTE: Required packages: libasound2-dev (ALSA)
-    LDLIBS = -lraylib -lbrcmGLESv2 -lbrcmEGL -lpthread -lrt -lm -lbcm_host -ldl
+    LDLIBS = -lraylib -lGLESv2 -lEGL -lpthread -lrt -lm -ldrm -lgbm -ldl
 endif
 ifeq ($(PLATFORM),PLATFORM_WEB)
     # Libraries for web (HTML5) compiling
@@ -356,7 +356,8 @@ EXAMPLES = \
     scroll_panel/scroll_panel \
     style_selector/style_selector \
     custom_sliders/custom_sliders \
-    animation_curve/animation_curve
+    animation_curve/animation_curve \
+    floating_window/floating_window \
 
 CURRENT_MAKEFILE = $(lastword $(MAKEFILE_LIST))
 
@@ -375,7 +376,7 @@ ifeq ($(PLATFORM),PLATFORM_DESKTOP)
 		del *.o *.exe /s
     endif
     ifeq ($(PLATFORM_OS),LINUX)
-	find -type f -executable | xargs file -i | grep -E 'x-object|x-archive|x-sharedlib|x-executable' | rev | cut -d ':' -f 2- | rev | xargs rm -fv
+		rm -f $(EXAMPLES)
     endif
     ifeq ($(PLATFORM_OS),OSX)
 		find . -type f -perm +ugo+x -delete

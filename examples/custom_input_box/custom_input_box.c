@@ -11,14 +11,13 @@
 *
 **********************************************************************************************/
 
-#include <raylib.h>
+#include "raylib.h"
 
 #define RAYGUI_IMPLEMENTATION
-#include <raygui.h>
+#include "../../src/raygui.h"
 
-int guiFloatingPointIndex = 0;                                                                                // Global variable shared by all GuiFLoatBox()
+int guiFloatingPointIndex = 0;      // Global variable shared by all GuiFloatBox()
 
-float TextToFloat(const char* text);                                                                          // Helper function that converts text to float
 int GuiFloatBox(Rectangle bounds, const char* text, float* value, int minValue, int maxValue, bool editMode); // Custom input box that works with float values. Basicly GuiValueBox(), but with some changes
 
 int main()
@@ -83,42 +82,6 @@ int main()
 	CloseWindow();
 }
 
-// Get float value from text
-float TextToFloat(const char* text)
-{
-	float value = 0.0f;
-	float floatingPoint = 0.0f;
-	int sign = 1;
-
-    // deal with the sign
-	if ((text[0] == '+') || (text[0] == '-'))
-	{
-		if (text[0] == '-') sign = -1;
-		text++;
-	}
-
-    // convert text to float
-	for (int i = 0; (((text[i] >= '0') && (text[i] <= '9')) || text[i] == '.'); i++)
-	{
-		if (text[i] == '.')
-		{
-			if (floatingPoint > 0.0f) break;
-
-			floatingPoint = 10.0f;
-			continue;
-		}
-		if (floatingPoint > 0.0f) // after encountering decimal separator
-		{
-			value += (float)(text[i] - '0') / floatingPoint;
-			floatingPoint *= 10.0f;
-		}
-		else                      // before decimal separator
-			value = value * 10.0f + (float)(text[i] - '0');
-	}
-
-	return value * sign;
-}
-
 // Float Box control, updates input text with numbers
 int GuiFloatBox(Rectangle bounds, const char* text, float* value, int minValue, int maxValue, bool editMode)
 {
@@ -137,13 +100,13 @@ int GuiFloatBox(Rectangle bounds, const char* text, float* value, int minValue, 
         textBounds.width = (float)GetTextWidth(text) + 2;
         textBounds.height = (float)GuiGetStyle(DEFAULT, TEXT_SIZE);
         textBounds.x = bounds.x + bounds.width + GuiGetStyle(VALUEBOX, TEXT_PADDING);
-        textBounds.y = bounds.y + bounds.height / 2 - GuiGetStyle(DEFAULT, TEXT_SIZE) / 2;
+        textBounds.y = bounds.y + bounds.height / 2.0f - GuiGetStyle(DEFAULT, TEXT_SIZE) / 2.0f;
         if (GuiGetStyle(VALUEBOX, TEXT_ALIGNMENT) == TEXT_ALIGN_LEFT) textBounds.x = bounds.x - textBounds.width - GuiGetStyle(VALUEBOX, TEXT_PADDING);
     }
 
     // Update control
     //--------------------------------------------------------------------
-    if ((state != STATE_DISABLED) && !guiLocked && !guiSliderDragging)
+    if ((state != STATE_DISABLED) && !guiLocked && !guiControlExclusiveMode)
     {
         Vector2 mousePoint = GetMousePosition();
 
@@ -205,7 +168,7 @@ int GuiFloatBox(Rectangle bounds, const char* text, float* value, int minValue, 
 
             if (valueHasChanged)
             {
-                *value = TextToFloat(textValue);
+                *value = atof(textValue);
             }
 
             if (IsKeyPressed(KEY_ENTER) || (!CheckCollisionPointRec(mousePoint, bounds) && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)))
@@ -248,7 +211,7 @@ int GuiFloatBox(Rectangle bounds, const char* text, float* value, int minValue, 
     if (editMode)
     {
         // NOTE: ValueBox internal text is always centered
-        Rectangle cursor = { bounds.x + GetTextWidth(textValue) / 2 + bounds.width / 2 + 1, bounds.y + 2 * GuiGetStyle(VALUEBOX, BORDER_WIDTH), 4, bounds.height - 4 * GuiGetStyle(VALUEBOX, BORDER_WIDTH) };
+        Rectangle cursor = { bounds.x + GetTextWidth(textValue) / 2.0f + bounds.width / 2.0f + 1, bounds.y + 2.0f * GuiGetStyle(VALUEBOX, BORDER_WIDTH), 4, bounds.height - 4 * GuiGetStyle(VALUEBOX, BORDER_WIDTH) };
         GuiDrawRectangle(cursor, 0, BLANK, Fade(GetColor(GuiGetStyle(VALUEBOX, BORDER_COLOR_PRESSED)), guiAlpha));
     }
 
