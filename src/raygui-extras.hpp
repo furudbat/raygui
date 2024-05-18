@@ -23,59 +23,122 @@
 #ifndef RAYGUI_EXTRAS_HPP
 #define RAYGUI_EXTRAS_HPP
 
-#include "raygui.h"
 #include <span>
 
 namespace raygui {
 
-    inline static constexpr auto DefaultBorderWidth = 0x1;
-    inline static constexpr auto DefaultTextPadding = 0x0;
-    inline static constexpr auto DefaultTextAlignment = 0x1;
-    inline static constexpr auto DefaultTextSize = 0xa;
-    inline static constexpr auto DefaultTextSpacing = 0x1;
-
     namespace styles::rdefault {
-        inline static constexpr auto ButtonBorderWidth = 0x2;
-        inline static constexpr auto ToggleGroupPadding = 0x2;
-        inline static constexpr auto SliderSliderWidth = 0xf;
-        inline static constexpr auto SliderTextPadding = 0x5;
-        inline static constexpr auto ProgressbarProgressPadding = 0x1;
-        inline static constexpr auto CheckboxTextPadding = 0x5;
-        inline static constexpr auto CheckboxTextAlignment = 0x2;
-        inline static constexpr auto CheckboxCheckPadding = 0x1;
-        inline static constexpr auto ComboboxComboButtonWidth = 0x1e;
-        inline static constexpr auto ComboboxComboButtonPadding = 0x2;
-        inline static constexpr auto DropdownboxArrowPadding = 0x10;
-        inline static constexpr auto DropdownboxDropdownItemsPadding = 0x2;
-        inline static constexpr auto TextboxTextPadding = 0x5;
-        inline static constexpr auto TextboxTextAlignment = 0x0;
-        inline static constexpr auto TextboxTextLinesPadding = 0x5;
+        inline static constexpr auto BorderColorNormal = 0x838383ff;
+        inline static constexpr auto BaseColorNormal = 0xc9c9c9ff;
+        inline static constexpr auto TextColorNormal = 0x686868ff;
+        inline static constexpr auto BorderColorFocused = 0x5bb2d9ff;
+        inline static constexpr auto BaseColorFocused = 0xc9effeff;
+        inline static constexpr auto TextColorFocused = 0x6c9bbcff;
+        inline static constexpr auto BorderColorPressed = 0x0492c7ff;
+        inline static constexpr auto BaseColorPressed = 0x97e8ffff;
+        inline static constexpr auto TextColorPressed = 0x368bafff;
+        inline static constexpr auto BorderColorDisabled = 0xb5c1c2ff;
+        inline static constexpr auto BaseColorDisabled = 0xe6e9e9ff;
+        inline static constexpr auto TextColorDisabled = 0xaeb7b8ff;
+        inline static constexpr auto BorderWidth = 1;
+        inline static constexpr auto TextPadding = 0;
+        inline static constexpr auto TextAlignment = TEXT_ALIGN_CENTER;
 
-        inline static constexpr auto ListviewListItemsHeight = 0x1e;
-        inline static constexpr auto ListviewListItemsPadding = 0x2;
-        inline static constexpr auto ListviewScrollbarWidth = 0xa;
-        inline static constexpr auto ListviewScrollbarSide = 0x2;
+        inline static constexpr auto TextSize = 10;
+        inline static constexpr auto TextSpacing = 1;
+        inline static constexpr auto LineColor = 0x90abb5ff;
+        inline static constexpr auto BackgroundColor = 0xf5f5f5ff;
+        inline static constexpr auto TextLineSpacing = 15;
+        inline static constexpr auto TextAlignmentVertical = TEXT_ALIGN_MIDDLE;
+
+        namespace label {
+            inline static constexpr auto TextAlignment = TEXT_ALIGN_LEFT;
+        }
+        namespace button {
+            inline static constexpr auto BorderWidth = 2;
+        }
+        namespace slider {
+            inline static constexpr auto TextPadding = 4;
+            inline static constexpr auto SliderWidth = 16;
+            inline static constexpr auto SliderPadding = 1;
+        }
+        namespace progressbar {
+            inline static constexpr auto TextPadding = 4;
+            inline static constexpr auto ProgressPadding = 1;
+        }
+        namespace checkbox {
+            inline static constexpr auto TextPadding = 4;
+            inline static constexpr auto TextAlignment = TEXT_ALIGN_RIGHT;
+        }
+        namespace dropdown {
+            inline static constexpr auto TextPadding = 0;
+            inline static constexpr auto TextAlignment = TEXT_ALIGN_CENTER;
+        }
+        namespace textbox {
+            inline static constexpr auto TextPadding = 4;
+            inline static constexpr auto TextAlignment = TEXT_ALIGN_LEFT;
+        }
+        namespace valuebox {
+            inline static constexpr auto TextPadding = 0;
+            inline static constexpr auto TextAlignment = TEXT_ALIGN_LEFT;
+        }
+        namespace spinner {
+            inline static constexpr auto TextPadding = 0;
+            inline static constexpr auto TextAlignment = TEXT_ALIGN_LEFT;
+        }
+        namespace statusbar {
+            inline static constexpr auto TextPadding = 8;
+            inline static constexpr auto TextAlignment = TEXT_ALIGN_LEFT;
+        }
+        namespace toggle {
+            inline static constexpr auto GroupPadding = 2;
+        }
+        namespace list_view {
+            inline static constexpr auto ListItemsHeight = 28;
+            inline static constexpr auto ListItemsSpacing = 2;
+            inline static constexpr auto ScrollbarWidth = 12;
+            inline static constexpr auto ScrollbarSide = SCROLLBAR_RIGHT_SIDE;
+        }
     }
 
 }
 
 [[nodiscard]] inline constexpr auto GuiDefaultListHeight(int items) {
-    return (raygui::styles::rdefault::ListviewListItemsHeight + raygui::styles::rdefault::ListviewListItemsPadding) * items;
+    return (raygui::styles::rdefault::list_view::ListItemsHeight + 2*raygui::styles::rdefault::list_view::ListItemsSpacing) * items;
 }
 
 struct GuiListComponent {
     int scroll_index{-1};
-    int active{-1};
-    int hover{-1};
+    int selected{-1};
+    int hover{-1}; // focused
+    int clicked_on{-1};
 };
 
 RAYGUIAPI int GuiListView(Rectangle bounds, const char *text, GuiListComponent& menu);
 RAYGUIAPI int GuiListViewEx(Rectangle bounds, const char **text, int count, GuiListComponent& menu);
 
-RAYGUIAPI int GuiListViewUpdate(Rectangle bounds, int count, GuiListComponent& menu, bool unselectable = false);
+enum class gui_list_view_selectable_t : uint8_t {
+    KeepSelection,
+    ToggleSelection,
+    DisableSelection,
+};
+struct GuiListViewUpdateOptions {
+    gui_list_view_selectable_t selectable {gui_list_view_selectable_t::ToggleSelection};
+};
+RAYGUIAPI int GuiListViewUpdate(Rectangle bounds, int count, GuiListComponent& menu, GuiListViewUpdateOptions options = {});
 
-RAYGUIAPI int GuiListViewRender(Rectangle bounds, const char *text, GuiListComponent& menu);
-RAYGUIAPI int GuiListViewRenderEx(Rectangle bounds, std::span<const char *> text, GuiListComponent& menu);
+RAYGUIAPI int GuiMenuListViewUpdate(Rectangle bounds, int count, GuiListComponent& menu, GuiListViewUpdateOptions options = {
+        .selectable = gui_list_view_selectable_t::DisableSelection,
+});
+
+RAYGUIAPI int GuiListViewRender(Rectangle bounds, const char *text, GuiListComponent& menu, GuiListViewRenderExOptions options = {});
+RAYGUIAPI int GuiListViewRenderEx(Rectangle bounds, std::span<const char *> text, GuiListComponent& menu, GuiListViewRenderExOptions options = {});
+
+RAYGUIAPI int GuiMenuListViewRender(Rectangle bounds, const char *text, GuiListComponent& menu, GuiListViewRenderExOptions options = {
+        .show_focused = true,
+        .show_selected = true,
+        .only_show_focused_or_selected = true,
+});
 
 RAYGUIAPI void GuiDebugLayoutRecs(std::span<const Rectangle> layoutRecs);
 
@@ -93,7 +156,7 @@ public:
     }
 
 private:
-    const int m_state;
+    int m_state;
 };
 class GuiDisabler {
 public:
@@ -109,7 +172,7 @@ public:
     }
 
 private:
-    const int m_state;
+    int m_state;
 };
 
 
@@ -128,7 +191,7 @@ public:
     }
 
 private:
-    const bool m_locked;
+    bool m_locked;
 };
 class GuiUnlocker {
 public:
@@ -145,7 +208,7 @@ public:
     }
 
 private:
-    const bool m_locked;
+    bool m_locked;
 };
 
 class GuiTempStyleChange {
@@ -157,9 +220,9 @@ public:
     ~GuiTempStyleChange() { GuiSetStyle(m_control, m_property, m_temp_style); }
 
 private:
-    const int m_control;
-    const int m_property;
-    const int m_temp_style;
+    int m_control;
+    int m_property;
+    int m_temp_style;
 };
 
 class GuiTempFontScaleChange {
@@ -183,9 +246,9 @@ public:
     }
 
 private:
-    const int m_temp_style;
+    int m_temp_style;
 #if !defined(RAYGUI_NO_ICONS)
-    const int m_temp_icon_scale;
+    int m_temp_icon_scale;
 #endif
 };
 
@@ -207,90 +270,138 @@ int GuiListView(Rectangle bounds, const char *text, GuiListComponent& menu) {
     return result;
 }
 int GuiListViewEx(Rectangle bounds, const char **text, int count, GuiListComponent& menu) {
-  return GuiListViewEx(bounds, text, count, &menu.scroll_index, &menu.active, &menu.hover);
+    return GuiListViewEx(bounds, text, count, &menu.scroll_index, &menu.selected, &menu.hover);
 }
 
-int GuiListViewUpdate(Rectangle bounds, int count, GuiListComponent& menu, bool unselectable) {
-  GuiState state = (GuiState)GuiGetState();
-  menu.hover = -1;
-  int result = 0;
+int GuiListViewUpdate(Rectangle bounds, int count, GuiListComponent& menu, GuiListViewUpdateOptions options) {
+    int result = 0;
+    GuiState state = (GuiState)GuiGetState();
 
-  // Check if we need a scroll bar
-  const bool useScrollBar = (GuiGetStyle(LISTVIEW, LIST_ITEMS_HEIGHT) + GuiGetStyle(LISTVIEW, LIST_ITEMS_SPACING))*count > bounds.height;
+    int itemFocused = menu.hover;
+    int itemSelected = menu.selected;
 
-  // Define base item rectangle [0]
-  Rectangle itemBounds = { 0 };
-  itemBounds.x = bounds.x + GuiGetStyle(LISTVIEW, LIST_ITEMS_SPACING);
-  itemBounds.y = bounds.y + GuiGetStyle(LISTVIEW, LIST_ITEMS_SPACING) + GuiGetStyle(DEFAULT, BORDER_WIDTH);
-  itemBounds.width = bounds.width - 2*GuiGetStyle(LISTVIEW, LIST_ITEMS_SPACING) - GuiGetStyle(DEFAULT, BORDER_WIDTH);
-  itemBounds.height = (float)GuiGetStyle(LISTVIEW, LIST_ITEMS_HEIGHT);
-  if (useScrollBar) itemBounds.width -= GuiGetStyle(LISTVIEW, SCROLLBAR_WIDTH);
+    // Check if we need a scroll bar
+    bool useScrollBar = false;
+    if ((GuiGetStyle(LISTVIEW, LIST_ITEMS_HEIGHT) + GuiGetStyle(LISTVIEW, LIST_ITEMS_SPACING))*count > bounds.height) useScrollBar = true;
 
-  // Get items on the list
-  int visibleItems = (int)bounds.height/(GuiGetStyle(LISTVIEW, LIST_ITEMS_HEIGHT) + GuiGetStyle(LISTVIEW, LIST_ITEMS_SPACING));
-  if (visibleItems > count) visibleItems = count;
-
-  int startIndex = menu.scroll_index;
-  if ((startIndex < 0) || (startIndex > (count - visibleItems))) startIndex = 0;
-  int endIndex = startIndex + visibleItems;
-
-  // Update control
-  //--------------------------------------------------------------------
-  if ((state != STATE_DISABLED) && !GuiIsLocked() && !GuiSliderIsDragging())
-  {
-    Vector2 mousePoint = GetMousePosition();
-
-    // Check mouse inside list view
-    if (CheckCollisionPointRec(mousePoint, bounds))
-    {
-      // Check focused and selected item
-      for (int i = 0; i < visibleItems; i++)
-      {
-        if (CheckCollisionPointRec(mousePoint, itemBounds))
-        {
-          if (menu.hover == (startIndex + i)) menu.hover = i;
-          else menu.hover = startIndex + i;
-          if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON))
-          {
-            if (menu.active == (startIndex + i) && unselectable) menu.active = -1;
-            else menu.active = startIndex + i;
-            result = 1;
-          }
-          break;
-        }
-
-        // Update item rectangle y position for next item
-        itemBounds.y += (GuiGetStyle(LISTVIEW, LIST_ITEMS_HEIGHT) + GuiGetStyle(LISTVIEW, LIST_ITEMS_SPACING));
-      }
-
-      if (useScrollBar)
-      {
-          int wheelMove = (int)GetMouseWheelMove();
-          startIndex -= wheelMove;
-
-          if (startIndex < 0) startIndex = 0;
-          else if (startIndex > (count - visibleItems)) startIndex = count - visibleItems;
-
-          endIndex = startIndex + visibleItems;
-          if (endIndex > count) endIndex = count;
-      }
-    }
-
-    // Reset item rectangle y to [0]
+    // Define base item rectangle [0]
+    Rectangle itemBounds = { 0 };
+    itemBounds.x = bounds.x + GuiGetStyle(LISTVIEW, LIST_ITEMS_SPACING);
     itemBounds.y = bounds.y + GuiGetStyle(LISTVIEW, LIST_ITEMS_SPACING) + GuiGetStyle(DEFAULT, BORDER_WIDTH);
-  }
-  //--------------------------------------------------------------------
+    itemBounds.width = bounds.width - 2*GuiGetStyle(LISTVIEW, LIST_ITEMS_SPACING) - GuiGetStyle(DEFAULT, BORDER_WIDTH);
+    itemBounds.height = (float)GuiGetStyle(LISTVIEW, LIST_ITEMS_HEIGHT);
+    if (useScrollBar) itemBounds.width -= GuiGetStyle(LISTVIEW, SCROLLBAR_WIDTH);
 
-  return result;
+    // Get items on the list
+    int visibleItems = (int)bounds.height/(GuiGetStyle(LISTVIEW, LIST_ITEMS_HEIGHT) + GuiGetStyle(LISTVIEW, LIST_ITEMS_SPACING));
+    if (visibleItems > count) visibleItems = count;
+
+    int startIndex = (menu.scroll_index < 0)? 0 : menu.scroll_index;
+    if ((startIndex < 0) || (startIndex > (count - visibleItems))) startIndex = 0;
+    int endIndex = startIndex + visibleItems;
+
+    // Update control
+    //--------------------------------------------------------------------
+    if ((state != STATE_DISABLED) && !GuiIsLocked() && !GuiControlExclusiveMode())
+    {
+        Vector2 mousePoint = GetMousePosition();
+
+        // Check mouse inside list view
+        if (CheckCollisionPointRec(mousePoint, bounds))
+        {
+            state = STATE_FOCUSED;
+
+            // Check focused and selected item
+            for (int i = 0; i < visibleItems; i++)
+            {
+                if (CheckCollisionPointRec(mousePoint, itemBounds))
+                {
+                    itemFocused = startIndex + i;
+                    if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON))
+                    {
+                        if (itemSelected == (startIndex + i) && options.selectable == gui_list_view_selectable_t::ToggleSelection) itemSelected = -1;
+                        else itemSelected = startIndex + i;
+                        result = 1;
+                    }
+                    break;
+                }
+
+                // Update item rectangle y position for next item
+                itemBounds.y += (GuiGetStyle(LISTVIEW, LIST_ITEMS_HEIGHT) + GuiGetStyle(LISTVIEW, LIST_ITEMS_SPACING));
+            }
+
+            if (useScrollBar)
+            {
+                int wheelMove = (int)GetMouseWheelMove();
+                startIndex -= wheelMove;
+
+                if (startIndex < 0) startIndex = 0;
+                else if (startIndex > (count - visibleItems)) startIndex = count - visibleItems;
+
+                endIndex = startIndex + visibleItems;
+                if (endIndex > count) endIndex = count;
+            }
+        }
+        else itemFocused = -1;
+
+        // Reset item rectangle y to [0]
+        itemBounds.y = bounds.y + GuiGetStyle(LISTVIEW, LIST_ITEMS_SPACING) + GuiGetStyle(DEFAULT, BORDER_WIDTH);
+    }
+    //--------------------------------------------------------------------
+
+    if (useScrollBar)
+    {
+        Rectangle scrollBarBounds = {
+            bounds.x + bounds.width - GuiGetStyle(LISTVIEW, BORDER_WIDTH) - GuiGetStyle(LISTVIEW, SCROLLBAR_WIDTH),
+            bounds.y + GuiGetStyle(LISTVIEW, BORDER_WIDTH), (float)GuiGetStyle(LISTVIEW, SCROLLBAR_WIDTH),
+            bounds.height - 2*GuiGetStyle(DEFAULT, BORDER_WIDTH)
+        };
+
+        // Calculate percentage of visible items and apply same percentage to scrollbar
+        float percentVisible = (float)(endIndex - startIndex)/count;
+        float sliderSize = bounds.height*percentVisible;
+
+        int prevSliderSize = GuiGetStyle(SCROLLBAR, SCROLL_SLIDER_SIZE);   // Save default slider size
+        int prevScrollSpeed = GuiGetStyle(SCROLLBAR, SCROLL_SPEED); // Save default scroll speed
+        GuiSetStyle(SCROLLBAR, SCROLL_SLIDER_SIZE, (int)sliderSize);            // Change slider size
+        GuiSetStyle(SCROLLBAR, SCROLL_SPEED, count - visibleItems); // Change scroll speed
+
+        startIndex = GuiScrollBar(scrollBarBounds, startIndex, 0, count - visibleItems);
+
+        GuiSetStyle(SCROLLBAR, SCROLL_SPEED, prevScrollSpeed); // Reset scroll speed to default
+        GuiSetStyle(SCROLLBAR, SCROLL_SLIDER_SIZE, prevSliderSize); // Reset slider size to default
+    }
+    //--------------------------------------------------------------------
+
+    if (options.selectable != gui_list_view_selectable_t::DisableSelection)
+    {
+        menu.selected = itemSelected;
+    }
+    if (result) {
+        menu.clicked_on = itemSelected;
+    }
+    menu.hover = itemFocused;
+    menu.scroll_index = startIndex;
+
+    return result;
 }
 
 
-int GuiListViewRender(Rectangle bounds, const char *text, GuiListComponent& menu) {
-  return GuiListViewRender(bounds, text, &menu.scroll_index, menu.active, menu.hover);
+int GuiMenuListViewUpdate(Rectangle bounds, int count, GuiListComponent& menu, GuiListViewUpdateOptions options) {
+    return GuiListViewUpdate(bounds, count, menu, options);
+}
+
+int GuiListViewRender(Rectangle bounds, const char *text, GuiListComponent& menu, GuiListViewRenderExOptions options) {
+  return GuiListViewRender(bounds, text, &menu.scroll_index, menu.selected, menu.hover, options);
 
 }
-int GuiListViewRenderEx(Rectangle bounds, std::span<const char *>text, GuiListComponent& menu) {
-  return GuiListViewRenderEx(bounds, text.data(), text.size(), &menu.scroll_index, menu.active, menu.hover);
+int GuiListViewRenderEx(Rectangle bounds, std::span<const char *>text, GuiListComponent& menu, GuiListViewRenderExOptions options) {
+  return GuiListViewRenderEx(bounds, text.data(), text.size(), &menu.scroll_index, menu.selected, menu.hover, options);
+}
+
+
+RAYGUIAPI int GuiMenuListViewRender(Rectangle bounds, const char *text, GuiListComponent& menu, GuiListViewRenderExOptions options) {
+  return GuiListViewRender(bounds, text, menu, options);
 }
 
 #endif

@@ -23,7 +23,6 @@
 #ifndef RAYGUI_EXTRAS_H
 #define RAYGUI_EXTRAS_H
 
-#include "raygui.h"
 #include <cstring>
 
 //----------------------------------------------------------------------------------
@@ -77,8 +76,13 @@ RAYGUIAPI int GuiListViewExHover(Rectangle bounds, int count, const int* scrollI
 RAYGUIAPI int GuiListViewClicked(Rectangle bounds, const char* text, const int* scrollIndex);
 RAYGUIAPI int GuiListViewExClicked(Rectangle bounds, int count, const int* scrollIndex);
 
-RAYGUIAPI int GuiListViewRender(Rectangle bounds, const char *text, int *scrollIndex, int itemSelected, int itemFocused);
-RAYGUIAPI int GuiListViewRenderEx(Rectangle bounds, const char **text, int count, int *scrollIndex, int itemSelected, int itemFocused);
+struct GuiListViewRenderExOptions {
+    bool show_focused{true};
+    bool show_selected{true};
+    bool only_show_focused_or_selected{false};
+};
+RAYGUIAPI int GuiListViewRender(Rectangle bounds, const char *text, int *scrollIndex, int itemSelected, int itemFocused, GuiListViewRenderExOptions options = {});
+RAYGUIAPI int GuiListViewRenderEx(Rectangle bounds, const char **text, int count, int *scrollIndex, int itemSelected, int itemFocused, GuiListViewRenderExOptions options = {});
 
 RAYGUIAPI bool GuiClickOnBox(Rectangle bounds);
 RAYGUIAPI bool GuiClickOutsideBox(Rectangle bounds);
@@ -215,7 +219,7 @@ int GuiButtonEx(Rectangle bounds, const char* text, bool focused)
 
   // Update control
   //--------------------------------------------------------------------
-  if ((state != STATE_DISABLED) && !GuiIsLocked() && !GuiSliderIsDragging())
+  if ((state != STATE_DISABLED) && !GuiIsLocked() && !GuiControlExclusiveMode())
   {
       Vector2 mousePoint = GetMousePosition();
 
@@ -266,7 +270,7 @@ int GuiCheckBoxEx(Rectangle bounds, const char* text, bool* checked, bool focuse
 
   // Update control
   //--------------------------------------------------------------------
-  if ((state != STATE_DISABLED) && !GuiIsLocked() && !GuiSliderIsDragging())
+  if ((state != STATE_DISABLED) && !GuiIsLocked() && !GuiControlExclusiveMode())
   {
       Vector2 mousePoint = GetMousePosition();
 
@@ -338,11 +342,12 @@ int GuiTextBoxReadOnly(Rectangle bounds, const char* text) {
   GuiState state = (GuiState)GuiGetState();
   float guiAlpha = GuiGetAlpha();
 
+  bool multiline = false;     // TODO: Consider multiline text input
+  int wrapMode = GuiGetStyle(DEFAULT, TEXT_WRAP_MODE);
+
   Rectangle textBounds = GetTextBounds(TEXTBOX, bounds);
   int textWidth = GetTextWidth(text) - GetTextWidth(text + textBoxCursorIndex);
-  int textIndexOffset = 0;        // Text index offset to start drawing in the box
-
-  int alignmentVertical = GuiGetStyle(TEXTBOX, TEXT_ALIGNMENT_VERTICAL);
+  int textIndexOffset = 0;    // Text index offset to start drawing in the box
 
   // Cursor rectangle
   // NOTE: Position X value should be updated
@@ -353,31 +358,34 @@ int GuiTextBoxReadOnly(Rectangle bounds, const char* text) {
       (float)GuiGetStyle(DEFAULT, TEXT_SIZE)*2
   };
 
-  switch (alignmentVertical)
-  {
-      case 0: cursor.y = textBounds.y + textBounds.height/2 - GuiGetStyle(DEFAULT, TEXT_SIZE); break;  // CENTERED
-      case 1: cursor.y = textBounds.y - GuiGetStyle(DEFAULT, TEXT_SIZE)/2; break;  // UP
-      case 2: cursor.y = textBounds.y + textBounds.height; break;  // DOWN
-      default: break;
-  }
+  if (cursor.height >= bounds.height) cursor.height = bounds.height - GuiGetStyle(TEXTBOX, BORDER_WIDTH)*2;
+  if (cursor.y < (bounds.y + GuiGetStyle(TEXTBOX, BORDER_WIDTH))) cursor.y = bounds.y + GuiGetStyle(TEXTBOX, BORDER_WIDTH);
 
-  //--------------------------------------------------------------------
+  // Mouse cursor rectangle
+  // NOTE: Initialized outside of screen
+  Rectangle mouseCursor = cursor;
+  mouseCursor.x = -1;
+  mouseCursor.width = 1;
+
+  // Blink-cursor frame counter
+  //if (!autoCursorMode) blinkCursorFrameCounter++;
+  //else blinkCursorFrameCounter = 0;
 
   // Draw control
   //--------------------------------------------------------------------
   if (state == STATE_PRESSED)
   {
-      GuiDrawRectangle(bounds, GuiGetStyle(TEXTBOX, BORDER_WIDTH), Fade(GetColor(GuiGetStyle(TEXTBOX, BORDER + (state*3))), guiAlpha), Fade(GetColor(GuiGetStyle(TEXTBOX, BASE_COLOR_PRESSED)), guiAlpha));
+      GuiDrawRectangle(bounds, GuiGetStyle(TEXTBOX, BORDER_WIDTH), GetColor(GuiGetStyle(TEXTBOX, BORDER + (state*3))), GetColor(GuiGetStyle(TEXTBOX, BASE_COLOR_PRESSED)));
   }
   else if (state == STATE_DISABLED)
   {
-      GuiDrawRectangle(bounds, GuiGetStyle(TEXTBOX, BORDER_WIDTH), Fade(GetColor(GuiGetStyle(TEXTBOX, BORDER + (state*3))), guiAlpha), Fade(GetColor(GuiGetStyle(TEXTBOX, BASE_COLOR_DISABLED)), guiAlpha));
+      GuiDrawRectangle(bounds, GuiGetStyle(TEXTBOX, BORDER_WIDTH), GetColor(GuiGetStyle(TEXTBOX, BORDER + (state*3))), GetColor(GuiGetStyle(TEXTBOX, BASE_COLOR_DISABLED)));
   }
-  else GuiDrawRectangle(bounds, GuiGetStyle(TEXTBOX, BORDER_WIDTH), Fade(GetColor(GuiGetStyle(TEXTBOX, BORDER + (state*3))), guiAlpha), BLANK);
+  else GuiDrawRectangle(bounds, GuiGetStyle(TEXTBOX, BORDER_WIDTH), GetColor(GuiGetStyle(TEXTBOX, BORDER + (state*3))), BLANK);
 
   // Draw text considering index offset if required
   // NOTE: Text index offset depends on cursor position
-  GuiDrawText(text + textIndexOffset, textBounds, GuiGetStyle(TEXTBOX, TEXT_ALIGNMENT), Fade(GetColor(GuiGetStyle(TEXTBOX, TEXT + (state*3))), guiAlpha));
+  GuiDrawText(text + textIndexOffset, textBounds, GuiGetStyle(TEXTBOX, TEXT_ALIGNMENT), GetColor(GuiGetStyle(TEXTBOX, TEXT + (state*3))));
 
   if (state == STATE_FOCUSED) GuiTooltip(bounds);
   //--------------------------------------------------------------------
@@ -389,14 +397,13 @@ int GuiTextBoxMultiReadOnly(Rectangle bounds, const char *text)
 {
     int result = 0;
 
-    GuiSetStyle(TEXTBOX, TEXT_ALIGNMENT_VERTICAL, 1);
-    GuiSetStyle(TEXTBOX, TEXT_MULTILINE, 1);
+    int oldAlign = GuiGetStyle(DEFAULT, TEXT_ALIGNMENT_VERTICAL);
 
-    // TODO: Implement methods to calculate cursor position properly
+    GuiSetStyle(DEFAULT, TEXT_ALIGNMENT_VERTICAL, TEXT_ALIGN_TOP);
+    GuiSetStyle(DEFAULT, TEXT_WRAP_MODE, TEXT_WRAP_WORD);
     result = GuiTextBoxReadOnly(bounds, text);
-
-    GuiSetStyle(TEXTBOX, TEXT_MULTILINE, 0);
-    GuiSetStyle(TEXTBOX, TEXT_ALIGNMENT_VERTICAL, 0);
+    GuiSetStyle(DEFAULT, TEXT_WRAP_MODE, TEXT_WRAP_NONE);
+    GuiSetStyle(DEFAULT, TEXT_ALIGNMENT_VERTICAL, oldAlign);
 
     return result;
 }
@@ -408,82 +415,78 @@ int GuiSpinnerEx(Rectangle bounds, const char *text, int *value, int minValue, i
 }
 int GuiSpinnerExRotate(Rectangle bounds, const char *text, int *value, int minValue, int maxValue, bool editMode, bool rotate)
 {
-  int result = 1;
-  GuiState state = (GuiState)GuiGetState();
+    int result = 1;
+    GuiState state = (GuiState)GuiGetState();
 
-  int tempValue = *value;
+    int tempValue = *value;
 
-  Rectangle spinner = { bounds.x + GuiGetStyle(SPINNER, SPIN_BUTTON_WIDTH) + GuiGetStyle(SPINNER, SPIN_BUTTON_SPACING), bounds.y,
-                        bounds.width - 2*(GuiGetStyle(SPINNER, SPIN_BUTTON_WIDTH) + GuiGetStyle(SPINNER, SPIN_BUTTON_SPACING)), bounds.height };
-  Rectangle leftButtonBound = { (float)bounds.x, (float)bounds.y, (float)GuiGetStyle(SPINNER, SPIN_BUTTON_WIDTH), (float)bounds.height };
-  Rectangle rightButtonBound = { (float)bounds.x + bounds.width - GuiGetStyle(SPINNER, SPIN_BUTTON_WIDTH), (float)bounds.y, (float)GuiGetStyle(SPINNER, SPIN_BUTTON_WIDTH), (float)bounds.height };
+    Rectangle spinner = { bounds.x + GuiGetStyle(SPINNER, SPIN_BUTTON_WIDTH) + GuiGetStyle(SPINNER, SPIN_BUTTON_SPACING), bounds.y,
+                          bounds.width - 2*(GuiGetStyle(SPINNER, SPIN_BUTTON_WIDTH) + GuiGetStyle(SPINNER, SPIN_BUTTON_SPACING)), bounds.height };
+    Rectangle leftButtonBound = { (float)bounds.x, (float)bounds.y, (float)GuiGetStyle(SPINNER, SPIN_BUTTON_WIDTH), (float)bounds.height };
+    Rectangle rightButtonBound = { (float)bounds.x + bounds.width - GuiGetStyle(SPINNER, SPIN_BUTTON_WIDTH), (float)bounds.y, (float)GuiGetStyle(SPINNER, SPIN_BUTTON_WIDTH), (float)bounds.height };
 
-  Rectangle textBounds = { 0 };
-  if (text != NULL)
-  {
-      textBounds.width = (float)GetTextWidth(text);
-      textBounds.height = (float)GuiGetStyle(DEFAULT, TEXT_SIZE);
-      textBounds.x = bounds.x + bounds.width + GuiGetStyle(SPINNER, TEXT_PADDING);
-      textBounds.y = bounds.y + bounds.height/2 - GuiGetStyle(DEFAULT, TEXT_SIZE)/2;
-      if (GuiGetStyle(SPINNER, TEXT_ALIGNMENT) == TEXT_ALIGN_LEFT) textBounds.x = bounds.x - textBounds.width - GuiGetStyle(SPINNER, TEXT_PADDING);
-  }
+    Rectangle textBounds = { 0 };
+    if (text != NULL)
+    {
+        textBounds.width = (float)GetTextWidth(text) + 2;
+        textBounds.height = (float)GuiGetStyle(DEFAULT, TEXT_SIZE);
+        textBounds.x = bounds.x + bounds.width + GuiGetStyle(SPINNER, TEXT_PADDING);
+        textBounds.y = bounds.y + bounds.height/2 - GuiGetStyle(DEFAULT, TEXT_SIZE)/2;
+        if (GuiGetStyle(SPINNER, TEXT_ALIGNMENT) == TEXT_ALIGN_LEFT) textBounds.x = bounds.x - textBounds.width - GuiGetStyle(SPINNER, TEXT_PADDING);
+    }
 
-  // Update control
-  //--------------------------------------------------------------------
-  if ((state != STATE_DISABLED) && !GuiIsLocked() && !GuiSliderIsDragging())
-  {
-      Vector2 mousePoint = GetMousePosition();
+    // Update control
+    //--------------------------------------------------------------------
+    if ((state != STATE_DISABLED) && !GuiIsLocked() && !GuiControlExclusiveMode())
+    {
+        Vector2 mousePoint = GetMousePosition();
 
-      // Check spinner state
-      if (CheckCollisionPointRec(mousePoint, bounds))
-      {
-          if (IsMouseButtonDown(MOUSE_LEFT_BUTTON)) state = STATE_PRESSED;
-          else state = STATE_FOCUSED;
-      }
-  }
+        // Check spinner state
+        if (CheckCollisionPointRec(mousePoint, bounds))
+        {
+            if (IsMouseButtonDown(MOUSE_LEFT_BUTTON)) state = STATE_PRESSED;
+            else state = STATE_FOCUSED;
+        }
+    }
 
-  #if defined(RAYGUI_NO_ICONS)
-  if (GuiButton(leftButtonBound, "<")) tempValue--;
-  if (GuiButton(rightButtonBound, ">")) tempValue++;
-  #else
-  if (GuiButton(leftButtonBound, GuiIconText(ICON_ARROW_LEFT_FILL, NULL))) tempValue--;
-  if (GuiButton(rightButtonBound, GuiIconText(ICON_ARROW_RIGHT_FILL, NULL))) tempValue++;
-  #endif
+#if defined(RAYGUI_NO_ICONS)
+    if (GuiButton(leftButtonBound, "<")) tempValue--;
+    if (GuiButton(rightButtonBound, ">")) tempValue++;
+#else
+    if (GuiButton(leftButtonBound, GuiIconText(ICON_ARROW_LEFT_FILL, NULL))) tempValue--;
+    if (GuiButton(rightButtonBound, GuiIconText(ICON_ARROW_RIGHT_FILL, NULL))) tempValue++;
+#endif
 
-  if (!editMode)
-  {
-    if (tempValue < minValue && !rotate)
-      tempValue = minValue;
-    if (tempValue < minValue && rotate)
-      tempValue = maxValue;
+    if (!editMode)
+    {
+        if (tempValue < minValue && !rotate) tempValue = minValue;
+        if (tempValue < minValue && rotate) tempValue = maxValue;
 
-    if (tempValue > maxValue && !rotate)
-      tempValue = maxValue;
-    if (tempValue > maxValue && rotate)
-      tempValue = minValue;
-  }
-  //--------------------------------------------------------------------
+        if (tempValue > maxValue && !rotate) tempValue = maxValue;
+        if (tempValue > maxValue && rotate) tempValue = minValue;
+    }
+    //--------------------------------------------------------------------
 
-  // Draw control
-  //--------------------------------------------------------------------
-  result = GuiValueBox(spinner, NULL, &tempValue, minValue, maxValue, editMode);
+    // Draw control
+    //--------------------------------------------------------------------
+    result = GuiValueBox(spinner, NULL, &tempValue, minValue, maxValue, editMode);
 
-  // Draw value selector custom buttons
-  // NOTE: BORDER_WIDTH and TEXT_ALIGNMENT forced values
-  int tempBorderWidth = GuiGetStyle(BUTTON, BORDER_WIDTH);
-  int tempTextAlign = GuiGetStyle(BUTTON, TEXT_ALIGNMENT);
-  GuiSetStyle(BUTTON, BORDER_WIDTH, GuiGetStyle(SPINNER, BORDER_WIDTH));
-  GuiSetStyle(BUTTON, TEXT_ALIGNMENT, TEXT_ALIGN_CENTER);
+    // Draw value selector custom buttons
+    // NOTE: BORDER_WIDTH and TEXT_ALIGNMENT forced values
+    int tempBorderWidth = GuiGetStyle(BUTTON, BORDER_WIDTH);
+    int tempTextAlign = GuiGetStyle(BUTTON, TEXT_ALIGNMENT);
+    GuiSetStyle(BUTTON, BORDER_WIDTH, GuiGetStyle(SPINNER, BORDER_WIDTH));
+    GuiSetStyle(BUTTON, TEXT_ALIGNMENT, TEXT_ALIGN_CENTER);
 
-  GuiSetStyle(BUTTON, TEXT_ALIGNMENT, tempTextAlign);
-  GuiSetStyle(BUTTON, BORDER_WIDTH, tempBorderWidth);
+    GuiSetStyle(BUTTON, TEXT_ALIGNMENT, tempTextAlign);
+    GuiSetStyle(BUTTON, BORDER_WIDTH, tempBorderWidth);
 
-  // Draw text label if provided
-  GuiDrawText(text, textBounds, (GuiGetStyle(SPINNER, TEXT_ALIGNMENT) == TEXT_ALIGN_RIGHT)? TEXT_ALIGN_LEFT : TEXT_ALIGN_RIGHT, Fade(GetColor(GuiGetStyle(LABEL, TEXT + (state*3))), guiAlpha));
-  //--------------------------------------------------------------------
+    // Draw text label if provided
+    GuiDrawText(text, textBounds, (GuiGetStyle(SPINNER, TEXT_ALIGNMENT) == TEXT_ALIGN_RIGHT)? TEXT_ALIGN_LEFT : TEXT_ALIGN_RIGHT, GetColor(GuiGetStyle(LABEL, TEXT + (state*3))));
+    //--------------------------------------------------------------------
 
-  *value = tempValue;
-  return result;
+    *value = tempValue;
+    return result;
 }
 
 int GuiTextBoxPlaceholder(Rectangle bounds, char *text, int textSize, bool editMode, const char* placeholder)
@@ -546,71 +549,106 @@ int GuiListViewHover(Rectangle bounds, const char *text, const int *scrollIndex)
   return GuiListViewExHover(bounds, itemCount, scrollIndex);
 }
 int GuiListViewExHover(Rectangle bounds, int count, const int *scrollIndex) {
-  GuiState state = (GuiState)GuiGetState();
-  int itemSelected = -1;
+    GuiState state = (GuiState)GuiGetState();
 
-  // Check if we need a scroll bar
-  bool useScrollBar = false;
-  if ((GuiGetStyle(LISTVIEW, LIST_ITEMS_HEIGHT) + GuiGetStyle(LISTVIEW, LIST_ITEMS_SPACING))*count > bounds.height) useScrollBar = true;
+    int itemFocused = -1;
+    int itemSelected = -1;
 
-  // Define base item rectangle [0]
-  Rectangle itemBounds = { 0 };
-  itemBounds.x = bounds.x + GuiGetStyle(LISTVIEW, LIST_ITEMS_SPACING);
-  itemBounds.y = bounds.y + GuiGetStyle(LISTVIEW, LIST_ITEMS_SPACING) + GuiGetStyle(DEFAULT, BORDER_WIDTH);
-  itemBounds.width = bounds.width - 2*GuiGetStyle(LISTVIEW, LIST_ITEMS_SPACING) - GuiGetStyle(DEFAULT, BORDER_WIDTH);
-  itemBounds.height = (float)GuiGetStyle(LISTVIEW, LIST_ITEMS_HEIGHT);
-  if (useScrollBar) itemBounds.width -= GuiGetStyle(LISTVIEW, SCROLLBAR_WIDTH);
+    // Check if we need a scroll bar
+    bool useScrollBar = false;
+    if ((GuiGetStyle(LISTVIEW, LIST_ITEMS_HEIGHT) + GuiGetStyle(LISTVIEW, LIST_ITEMS_SPACING))*count > bounds.height) useScrollBar = true;
 
-  // Get items on the list
-  int visibleItems = (int)bounds.height/(GuiGetStyle(LISTVIEW, LIST_ITEMS_HEIGHT) + GuiGetStyle(LISTVIEW, LIST_ITEMS_SPACING));
-  if (visibleItems > count) visibleItems = count;
-
-  int startIndex = (scrollIndex == NULL)? 0 : *scrollIndex;
-  if ((startIndex < 0) || (startIndex > (count - visibleItems))) startIndex = 0;
-  int endIndex = startIndex + visibleItems;
-
-  // Update control
-  //--------------------------------------------------------------------
-  if ((state != STATE_DISABLED) && !GuiIsLocked() && !GuiSliderIsDragging())
-  {
-    Vector2 mousePoint = GetMousePosition();
-
-    // Check mouse inside list view
-    if (CheckCollisionPointRec(mousePoint, bounds))
-    {
-      // Check focused and selected item
-      for (int i = 0; i < visibleItems; i++)
-      {
-        if (CheckCollisionPointRec(mousePoint, itemBounds))
-        {
-          if (itemSelected == (startIndex + i)) itemSelected = -1;
-          else itemSelected = startIndex + i;
-          break;
-        }
-
-        // Update item rectangle y position for next item
-        itemBounds.y += (GuiGetStyle(LISTVIEW, LIST_ITEMS_HEIGHT) + GuiGetStyle(LISTVIEW, LIST_ITEMS_SPACING));
-      }
-
-      if (useScrollBar)
-      {
-          int wheelMove = (int)GetMouseWheelMove();
-          startIndex -= wheelMove;
-
-          if (startIndex < 0) startIndex = 0;
-          else if (startIndex > (count - visibleItems)) startIndex = count - visibleItems;
-
-          endIndex = startIndex + visibleItems;
-          if (endIndex > count) endIndex = count;
-      }
-    }
-
-    // Reset item rectangle y to [0]
+    // Define base item rectangle [0]
+    Rectangle itemBounds = { 0 };
+    itemBounds.x = bounds.x + GuiGetStyle(LISTVIEW, LIST_ITEMS_SPACING);
     itemBounds.y = bounds.y + GuiGetStyle(LISTVIEW, LIST_ITEMS_SPACING) + GuiGetStyle(DEFAULT, BORDER_WIDTH);
-  }
-  //--------------------------------------------------------------------
+    itemBounds.width = bounds.width - 2*GuiGetStyle(LISTVIEW, LIST_ITEMS_SPACING) - GuiGetStyle(DEFAULT, BORDER_WIDTH);
+    itemBounds.height = (float)GuiGetStyle(LISTVIEW, LIST_ITEMS_HEIGHT);
+    if (useScrollBar) itemBounds.width -= GuiGetStyle(LISTVIEW, SCROLLBAR_WIDTH);
 
-  return itemSelected;
+    // Get items on the list
+    int visibleItems = (int)bounds.height/(GuiGetStyle(LISTVIEW, LIST_ITEMS_HEIGHT) + GuiGetStyle(LISTVIEW, LIST_ITEMS_SPACING));
+    if (visibleItems > count) visibleItems = count;
+
+    int startIndex = (scrollIndex == NULL)? 0 : *scrollIndex;
+    if ((startIndex < 0) || (startIndex > (count - visibleItems))) startIndex = 0;
+    int endIndex = startIndex + visibleItems;
+
+    // Update control
+    //--------------------------------------------------------------------
+    if ((state != STATE_DISABLED) && !GuiIsLocked() && !GuiControlExclusiveMode())
+    {
+        Vector2 mousePoint = GetMousePosition();
+
+        // Check mouse inside list view
+        if (CheckCollisionPointRec(mousePoint, bounds))
+        {
+            state = STATE_FOCUSED;
+
+            // Check focused and selected item
+            for (int i = 0; i < visibleItems; i++)
+            {
+                if (CheckCollisionPointRec(mousePoint, itemBounds))
+                {
+                    itemFocused = startIndex + i;
+                    if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON))
+                    {
+                        if (itemSelected == (startIndex + i)) itemSelected = -1;
+                        else itemSelected = startIndex + i;
+                    }
+                    break;
+                }
+
+                // Update item rectangle y position for next item
+                itemBounds.y += (GuiGetStyle(LISTVIEW, LIST_ITEMS_HEIGHT) + GuiGetStyle(LISTVIEW, LIST_ITEMS_SPACING));
+            }
+
+            if (useScrollBar)
+            {
+                int wheelMove = (int)GetMouseWheelMove();
+                startIndex -= wheelMove;
+
+                if (startIndex < 0) startIndex = 0;
+                else if (startIndex > (count - visibleItems)) startIndex = count - visibleItems;
+
+                endIndex = startIndex + visibleItems;
+                if (endIndex > count) endIndex = count;
+            }
+        }
+        else itemFocused = -1;
+
+        // Reset item rectangle y to [0]
+        itemBounds.y = bounds.y + GuiGetStyle(LISTVIEW, LIST_ITEMS_SPACING) + GuiGetStyle(DEFAULT, BORDER_WIDTH);
+    }
+    //--------------------------------------------------------------------
+
+    /*
+    if (useScrollBar)
+    {
+        Rectangle scrollBarBounds = {
+            bounds.x + bounds.width - GuiGetStyle(LISTVIEW, BORDER_WIDTH) - GuiGetStyle(LISTVIEW, SCROLLBAR_WIDTH),
+            bounds.y + GuiGetStyle(LISTVIEW, BORDER_WIDTH), (float)GuiGetStyle(LISTVIEW, SCROLLBAR_WIDTH),
+            bounds.height - 2*GuiGetStyle(DEFAULT, BORDER_WIDTH)
+        };
+
+        // Calculate percentage of visible items and apply same percentage to scrollbar
+        float percentVisible = (float)(endIndex - startIndex)/count;
+        float sliderSize = bounds.height*percentVisible;
+
+        int prevSliderSize = GuiGetStyle(SCROLLBAR, SCROLL_SLIDER_SIZE);   // Save default slider size
+        int prevScrollSpeed = GuiGetStyle(SCROLLBAR, SCROLL_SPEED); // Save default scroll speed
+        GuiSetStyle(SCROLLBAR, SCROLL_SLIDER_SIZE, (int)sliderSize);            // Change slider size
+        GuiSetStyle(SCROLLBAR, SCROLL_SPEED, count - visibleItems); // Change scroll speed
+
+        startIndex = GuiScrollBar(scrollBarBounds, startIndex, 0, count - visibleItems);
+
+        GuiSetStyle(SCROLLBAR, SCROLL_SPEED, prevScrollSpeed); // Reset scroll speed to default
+        GuiSetStyle(SCROLLBAR, SCROLL_SLIDER_SIZE, prevSliderSize); // Reset slider size to default
+    }
+    */
+    //--------------------------------------------------------------------
+
+    return itemFocused;
 }
 
 int GuiListViewClicked(Rectangle bounds, const char *text, const int *scrollIndex) {
@@ -622,79 +660,111 @@ int GuiListViewClicked(Rectangle bounds, const char *text, const int *scrollInde
   return GuiListViewExClicked(bounds, itemCount, scrollIndex);
 }
 int GuiListViewExClicked(Rectangle bounds, int count, const int *scrollIndex) {
-  GuiState state = (GuiState)GuiGetState();
-  int itemSelected = -1;
+    GuiState state = (GuiState)GuiGetState();
 
-  // Check if we need a scroll bar
-  bool useScrollBar = false;
-  if ((GuiGetStyle(LISTVIEW, LIST_ITEMS_HEIGHT) + GuiGetStyle(LISTVIEW, LIST_ITEMS_SPACING))*count > bounds.height) useScrollBar = true;
+    int itemFocused = -1;
+    int itemSelected = -1;
 
-  // Define base item rectangle [0]
-  Rectangle itemBounds = { 0 };
-  itemBounds.x = bounds.x + GuiGetStyle(LISTVIEW, LIST_ITEMS_SPACING);
-  itemBounds.y = bounds.y + GuiGetStyle(LISTVIEW, LIST_ITEMS_SPACING) + GuiGetStyle(DEFAULT, BORDER_WIDTH);
-  itemBounds.width = bounds.width - 2*GuiGetStyle(LISTVIEW, LIST_ITEMS_SPACING) - GuiGetStyle(DEFAULT, BORDER_WIDTH);
-  itemBounds.height = (float)GuiGetStyle(LISTVIEW, LIST_ITEMS_HEIGHT);
-  if (useScrollBar) itemBounds.width -= GuiGetStyle(LISTVIEW, SCROLLBAR_WIDTH);
+    // Check if we need a scroll bar
+    bool useScrollBar = false;
+    if ((GuiGetStyle(LISTVIEW, LIST_ITEMS_HEIGHT) + GuiGetStyle(LISTVIEW, LIST_ITEMS_SPACING))*count > bounds.height) useScrollBar = true;
 
-  // Get items on the list
-  int visibleItems = (int)bounds.height/(GuiGetStyle(LISTVIEW, LIST_ITEMS_HEIGHT) + GuiGetStyle(LISTVIEW, LIST_ITEMS_SPACING));
-  if (visibleItems > count) visibleItems = count;
-
-  int startIndex = (scrollIndex == NULL)? 0 : *scrollIndex;
-  if ((startIndex < 0) || (startIndex > (count - visibleItems))) startIndex = 0;
-  int endIndex = startIndex + visibleItems;
-
-  // Update control
-  //--------------------------------------------------------------------
-  if ((state != STATE_DISABLED) && !GuiIsLocked() && !GuiSliderIsDragging())
-  {
-    Vector2 mousePoint = GetMousePosition();
-
-    // Check mouse inside list view
-    if (CheckCollisionPointRec(mousePoint, bounds))
-    {
-      // Check focused and selected item
-      for (int i = 0; i < visibleItems; i++)
-      {
-        if (CheckCollisionPointRec(mousePoint, itemBounds))
-        {
-          if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON))
-          {
-            if (itemSelected == (startIndex + i)) itemSelected = -1;
-            else itemSelected = startIndex + i;
-          }
-          break;
-        }
-
-        // Update item rectangle y position for next item
-        itemBounds.y += (GuiGetStyle(LISTVIEW, LIST_ITEMS_HEIGHT) + GuiGetStyle(LISTVIEW, LIST_ITEMS_SPACING));
-      }
-
-      if (useScrollBar)
-      {
-          int wheelMove = (int)GetMouseWheelMove();
-          startIndex -= wheelMove;
-
-          if (startIndex < 0) startIndex = 0;
-          else if (startIndex > (count - visibleItems)) startIndex = count - visibleItems;
-
-          endIndex = startIndex + visibleItems;
-          if (endIndex > count) endIndex = count;
-      }
-    }
-
-    // Reset item rectangle y to [0]
+    // Define base item rectangle [0]
+    Rectangle itemBounds = { 0 };
+    itemBounds.x = bounds.x + GuiGetStyle(LISTVIEW, LIST_ITEMS_SPACING);
     itemBounds.y = bounds.y + GuiGetStyle(LISTVIEW, LIST_ITEMS_SPACING) + GuiGetStyle(DEFAULT, BORDER_WIDTH);
-  }
-  //--------------------------------------------------------------------
+    itemBounds.width = bounds.width - 2*GuiGetStyle(LISTVIEW, LIST_ITEMS_SPACING) - GuiGetStyle(DEFAULT, BORDER_WIDTH);
+    itemBounds.height = (float)GuiGetStyle(LISTVIEW, LIST_ITEMS_HEIGHT);
+    if (useScrollBar) itemBounds.width -= GuiGetStyle(LISTVIEW, SCROLLBAR_WIDTH);
 
-  return itemSelected;
+    // Get items on the list
+    int visibleItems = (int)bounds.height/(GuiGetStyle(LISTVIEW, LIST_ITEMS_HEIGHT) + GuiGetStyle(LISTVIEW, LIST_ITEMS_SPACING));
+    if (visibleItems > count) visibleItems = count;
+
+    int startIndex = (scrollIndex == NULL)? 0 : *scrollIndex;
+    if ((startIndex < 0) || (startIndex > (count - visibleItems))) startIndex = 0;
+    int endIndex = startIndex + visibleItems;
+
+    // Update control
+    //--------------------------------------------------------------------
+    if ((state != STATE_DISABLED) && !GuiIsLocked() && !GuiControlExclusiveMode())
+    {
+        Vector2 mousePoint = GetMousePosition();
+
+        // Check mouse inside list view
+        if (CheckCollisionPointRec(mousePoint, bounds))
+        {
+            state = STATE_FOCUSED;
+
+            // Check focused and selected item
+            for (int i = 0; i < visibleItems; i++)
+            {
+                if (CheckCollisionPointRec(mousePoint, itemBounds))
+                {
+                    itemFocused = startIndex + i;
+                    if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON))
+                    {
+                        if (itemSelected == (startIndex + i)) itemSelected = -1;
+                        else itemSelected = startIndex + i;
+                    }
+                    break;
+                }
+
+                // Update item rectangle y position for next item
+                itemBounds.y += (GuiGetStyle(LISTVIEW, LIST_ITEMS_HEIGHT) + GuiGetStyle(LISTVIEW, LIST_ITEMS_SPACING));
+            }
+
+            if (useScrollBar)
+            {
+                int wheelMove = (int)GetMouseWheelMove();
+                startIndex -= wheelMove;
+
+                if (startIndex < 0) startIndex = 0;
+                else if (startIndex > (count - visibleItems)) startIndex = count - visibleItems;
+
+                endIndex = startIndex + visibleItems;
+                if (endIndex > count) endIndex = count;
+            }
+        }
+        else itemFocused = -1;
+
+        // Reset item rectangle y to [0]
+        itemBounds.y = bounds.y + GuiGetStyle(LISTVIEW, LIST_ITEMS_SPACING) + GuiGetStyle(DEFAULT, BORDER_WIDTH);
+    }
+    //--------------------------------------------------------------------
+
+    /*
+    if (useScrollBar)
+    {
+        Rectangle scrollBarBounds = {
+            bounds.x + bounds.width - GuiGetStyle(LISTVIEW, BORDER_WIDTH) - GuiGetStyle(LISTVIEW, SCROLLBAR_WIDTH),
+            bounds.y + GuiGetStyle(LISTVIEW, BORDER_WIDTH), (float)GuiGetStyle(LISTVIEW, SCROLLBAR_WIDTH),
+            bounds.height - 2*GuiGetStyle(DEFAULT, BORDER_WIDTH)
+        };
+
+        // Calculate percentage of visible items and apply same percentage to scrollbar
+        float percentVisible = (float)(endIndex - startIndex)/count;
+        float sliderSize = bounds.height*percentVisible;
+
+        int prevSliderSize = GuiGetStyle(SCROLLBAR, SCROLL_SLIDER_SIZE);   // Save default slider size
+        int prevScrollSpeed = GuiGetStyle(SCROLLBAR, SCROLL_SPEED); // Save default scroll speed
+        GuiSetStyle(SCROLLBAR, SCROLL_SLIDER_SIZE, (int)sliderSize);            // Change slider size
+        GuiSetStyle(SCROLLBAR, SCROLL_SPEED, count - visibleItems); // Change scroll speed
+
+        startIndex = GuiScrollBar(scrollBarBounds, startIndex, 0, count - visibleItems);
+
+        GuiSetStyle(SCROLLBAR, SCROLL_SPEED, prevScrollSpeed); // Reset scroll speed to default
+        GuiSetStyle(SCROLLBAR, SCROLL_SLIDER_SIZE, prevSliderSize); // Reset slider size to default
+    }
+    */
+    //--------------------------------------------------------------------
+
+    return itemSelected;
 }
 
 
 // List View control (Draw controls)
-int GuiListViewRender(Rectangle bounds, const char *text, int *scrollIndex, int itemSelected, int itemFocused)
+int GuiListViewRender(Rectangle bounds, const char *text, int *scrollIndex, int itemSelected, int itemFocused, GuiListViewRenderExOptions options)
 {
     int result = 0;
     int itemCount = 0;
@@ -702,13 +772,13 @@ int GuiListViewRender(Rectangle bounds, const char *text, int *scrollIndex, int 
 
     if (text != NULL) items = GuiTextSplit(text, ';', &itemCount, NULL);
 
-    result = GuiListViewRenderEx(bounds, items, itemCount, scrollIndex, itemSelected, itemFocused);
+    result = GuiListViewRenderEx(bounds, items, itemCount, scrollIndex, itemSelected, itemFocused, options);
 
     return result;
 }
 
 // List View control with extended parameters (Draw controls)
-int GuiListViewRenderEx(Rectangle bounds, const char **text, int count, int *scrollIndex, int itemSelected, int itemFocused)
+int GuiListViewRenderEx(Rectangle bounds, const char **text, int count, int *scrollIndex, int itemSelected, int itemFocused, GuiListViewRenderExOptions options)
 {
     int result = 0;
     GuiState state = (GuiState)GuiGetState();
@@ -736,35 +806,56 @@ int GuiListViewRenderEx(Rectangle bounds, const char **text, int count, int *scr
 
     // Draw control
     //--------------------------------------------------------------------
-    GuiDrawRectangle(bounds, GuiGetStyle(DEFAULT, BORDER_WIDTH), Fade(GetColor(GuiGetStyle(LISTVIEW, BORDER + state*3)), guiAlpha), GetColor(GuiGetStyle(DEFAULT, BACKGROUND_COLOR)));     // Draw background
+    GuiDrawRectangle(bounds, GuiGetStyle(DEFAULT, BORDER_WIDTH), GetColor(GuiGetStyle(LISTVIEW, BORDER + state*3)), GetColor(GuiGetStyle(DEFAULT, BACKGROUND_COLOR)));     // Draw background
+
+    bool show_focus_only = options.only_show_focused_or_selected && itemFocused != -1;
 
     // Draw visible items
     for (int i = 0; ((i < visibleItems) && (text != NULL)); i++)
     {
         if (state == STATE_DISABLED)
         {
-            if ((startIndex + i) == itemSelected) GuiDrawRectangle(itemBounds, GuiGetStyle(LISTVIEW, BORDER_WIDTH), Fade(GetColor(GuiGetStyle(LISTVIEW, BORDER_COLOR_DISABLED)), guiAlpha), Fade(GetColor(GuiGetStyle(LISTVIEW, BASE_COLOR_DISABLED)), guiAlpha));
+            if (options.show_selected && !show_focus_only) {
+                if ((startIndex + i) == itemSelected) GuiDrawRectangle(itemBounds, GuiGetStyle(LISTVIEW, BORDER_WIDTH), GetColor(GuiGetStyle(LISTVIEW, BORDER_COLOR_DISABLED)), GetColor(GuiGetStyle(LISTVIEW, BASE_COLOR_DISABLED)));
 
-            GuiDrawText(text[startIndex + i], GetTextBounds(DEFAULT, itemBounds), GuiGetStyle(LISTVIEW, TEXT_ALIGNMENT), Fade(GetColor(GuiGetStyle(LISTVIEW, TEXT_COLOR_DISABLED)), guiAlpha));
+                GuiDrawText(text[startIndex + i], GetTextBounds(DEFAULT, itemBounds), GuiGetStyle(LISTVIEW, TEXT_ALIGNMENT), GetColor(GuiGetStyle(LISTVIEW, TEXT_COLOR_DISABLED)));
+            } else {
+                // Draw item normal
+                GuiDrawText(text[startIndex + i], GetTextBounds(DEFAULT, itemBounds), GuiGetStyle(LISTVIEW, TEXT_ALIGNMENT), GetColor(GuiGetStyle(LISTVIEW, TEXT_COLOR_NORMAL)));
+            }
         }
         else
         {
-            if ((startIndex + i) == itemSelected)
+            if (((startIndex + i) == itemSelected) && (itemSelected != -1))
             {
-                // Draw item selected
-                GuiDrawRectangle(itemBounds, GuiGetStyle(LISTVIEW, BORDER_WIDTH), Fade(GetColor(GuiGetStyle(LISTVIEW, BORDER_COLOR_PRESSED)), guiAlpha), Fade(GetColor(GuiGetStyle(LISTVIEW, BASE_COLOR_PRESSED)), guiAlpha));
-                GuiDrawText(text[startIndex + i], GetTextBounds(DEFAULT, itemBounds), GuiGetStyle(LISTVIEW, TEXT_ALIGNMENT), Fade(GetColor(GuiGetStyle(LISTVIEW, TEXT_COLOR_PRESSED)), guiAlpha));
+                if (options.show_selected && !show_focus_only) {
+                    // Draw item selected
+                    GuiDrawRectangle(itemBounds, GuiGetStyle(LISTVIEW, BORDER_WIDTH), GetColor(GuiGetStyle(LISTVIEW, BORDER_COLOR_PRESSED)), GetColor(GuiGetStyle(LISTVIEW, BASE_COLOR_PRESSED)));
+                    GuiDrawText(text[startIndex + i], GetTextBounds(DEFAULT, itemBounds), GuiGetStyle(LISTVIEW, TEXT_ALIGNMENT), GetColor(GuiGetStyle(LISTVIEW, TEXT_COLOR_PRESSED)));
+                } else if (show_focus_only && ((startIndex + i) == itemFocused)) {
+                    // Draw item focused
+                    GuiDrawRectangle(itemBounds, GuiGetStyle(LISTVIEW, BORDER_WIDTH), GetColor(GuiGetStyle(LISTVIEW, BORDER_COLOR_FOCUSED)), GetColor(GuiGetStyle(LISTVIEW, BASE_COLOR_FOCUSED)));
+                    GuiDrawText(text[startIndex + i], GetTextBounds(DEFAULT, itemBounds), GuiGetStyle(LISTVIEW, TEXT_ALIGNMENT), GetColor(GuiGetStyle(LISTVIEW, TEXT_COLOR_FOCUSED)));
+                } else {
+                    // Draw item normal
+                    GuiDrawText(text[startIndex + i], GetTextBounds(DEFAULT, itemBounds), GuiGetStyle(LISTVIEW, TEXT_ALIGNMENT), GetColor(GuiGetStyle(LISTVIEW, TEXT_COLOR_NORMAL)));
+                }
             }
-            else if ((startIndex + i) == itemFocused)
+            else if (((startIndex + i) == itemFocused)) // && (itemFocused != -1))  // NOTE: We want items focused, despite not returned!
             {
-                // Draw item focused
-                GuiDrawRectangle(itemBounds, GuiGetStyle(LISTVIEW, BORDER_WIDTH), Fade(GetColor(GuiGetStyle(LISTVIEW, BORDER_COLOR_FOCUSED)), guiAlpha), Fade(GetColor(GuiGetStyle(LISTVIEW, BASE_COLOR_FOCUSED)), guiAlpha));
-                GuiDrawText(text[startIndex + i], GetTextBounds(DEFAULT, itemBounds), GuiGetStyle(LISTVIEW, TEXT_ALIGNMENT), Fade(GetColor(GuiGetStyle(LISTVIEW, TEXT_COLOR_FOCUSED)), guiAlpha));
+                if (options.show_focused) {
+                    // Draw item focused
+                    GuiDrawRectangle(itemBounds, GuiGetStyle(LISTVIEW, BORDER_WIDTH), GetColor(GuiGetStyle(LISTVIEW, BORDER_COLOR_FOCUSED)), GetColor(GuiGetStyle(LISTVIEW, BASE_COLOR_FOCUSED)));
+                    GuiDrawText(text[startIndex + i], GetTextBounds(DEFAULT, itemBounds), GuiGetStyle(LISTVIEW, TEXT_ALIGNMENT), GetColor(GuiGetStyle(LISTVIEW, TEXT_COLOR_FOCUSED)));
+                } else {
+                    // Draw item normal
+                    GuiDrawText(text[startIndex + i], GetTextBounds(DEFAULT, itemBounds), GuiGetStyle(LISTVIEW, TEXT_ALIGNMENT), GetColor(GuiGetStyle(LISTVIEW, TEXT_COLOR_NORMAL)));
+                }
             }
             else
             {
                 // Draw item normal
-                GuiDrawText(text[startIndex + i], GetTextBounds(DEFAULT, itemBounds), GuiGetStyle(LISTVIEW, TEXT_ALIGNMENT), Fade(GetColor(GuiGetStyle(LISTVIEW, TEXT_COLOR_NORMAL)), guiAlpha));
+                GuiDrawText(text[startIndex + i], GetTextBounds(DEFAULT, itemBounds), GuiGetStyle(LISTVIEW, TEXT_ALIGNMENT), GetColor(GuiGetStyle(LISTVIEW, TEXT_COLOR_NORMAL)));
             }
         }
 
@@ -804,7 +895,7 @@ int GuiLabelButtonEx(Rectangle bounds, const char *text, bool focused)
 {
     GuiState state = (GuiState)GuiGetState();
     const float guiAlpha = GuiGetAlpha();
-    int result = 0;
+    bool pressed = false;
 
     // NOTE: We force bounds.width to be all text
     float textWidth = (float)GetTextWidth(text);
@@ -812,7 +903,7 @@ int GuiLabelButtonEx(Rectangle bounds, const char *text, bool focused)
 
     // Update control
     //--------------------------------------------------------------------
-    if ((state != STATE_DISABLED) && !GuiIsLocked() && !GuiSliderIsDragging())
+    if ((state != STATE_DISABLED) && !GuiIsLocked() && !GuiControlExclusiveMode())
     {
         Vector2 mousePoint = GetMousePosition();
         if (focused) state = STATE_FOCUSED;
@@ -823,17 +914,17 @@ int GuiLabelButtonEx(Rectangle bounds, const char *text, bool focused)
             if (IsMouseButtonDown(MOUSE_LEFT_BUTTON)) state = STATE_PRESSED;
             else state = STATE_FOCUSED;
 
-            if (IsMouseButtonReleased(MOUSE_LEFT_BUTTON)) result = 1;
+            if (IsMouseButtonReleased(MOUSE_LEFT_BUTTON)) pressed = true;
         }
     }
     //--------------------------------------------------------------------
 
     // Draw control
     //--------------------------------------------------------------------
-    GuiDrawText(text, GetTextBounds(LABEL, bounds), GuiGetStyle(LABEL, TEXT_ALIGNMENT), Fade(GetColor(GuiGetStyle(LABEL, TEXT + (state*3))), guiAlpha));
+    GuiDrawText(text, GetTextBounds(LABEL, bounds), GuiGetStyle(LABEL, TEXT_ALIGNMENT), GetColor(GuiGetStyle(LABEL, TEXT + (state*3))));
     //--------------------------------------------------------------------
 
-    return result;
+    return pressed ? 1 : 0;
 }
 
 
@@ -841,8 +932,8 @@ int GuiLabelButtonEx(Rectangle bounds, const char *text, bool focused)
 int GuiLabelButtonExActive(Rectangle bounds, const char *text, bool focused, bool active)
 {
     GuiState state = (GuiState)GuiGetState();
-    float guiAlpha = GuiGetAlpha();
-    int result = 0;
+    float textAlpha = GuiGetAlpha();
+    bool pressed = false;
 
     // NOTE: We force bounds.width to be all text
     float textWidth = (float)GetTextWidth(text);
@@ -850,7 +941,7 @@ int GuiLabelButtonExActive(Rectangle bounds, const char *text, bool focused, boo
 
     // Update control
     //--------------------------------------------------------------------
-    if ((state != STATE_DISABLED) && !GuiIsLocked() && !GuiSliderIsDragging())
+    if ((state != STATE_DISABLED) && !GuiIsLocked() && !GuiControlExclusiveMode())
     {
         Vector2 mousePoint = GetMousePosition();
         if (focused) state = STATE_FOCUSED;
@@ -861,15 +952,19 @@ int GuiLabelButtonExActive(Rectangle bounds, const char *text, bool focused, boo
             if (IsMouseButtonDown(MOUSE_LEFT_BUTTON)) state = STATE_PRESSED;
             else state = STATE_FOCUSED;
 
-            if (IsMouseButtonReleased(MOUSE_LEFT_BUTTON)) result = 1;
+            if (IsMouseButtonReleased(MOUSE_LEFT_BUTTON)) pressed = true;
         }
     }
     //--------------------------------------------------------------------
 
+    if (active || state == STATE_PRESSED || state == STATE_FOCUSED || state == STATE_NORMAL) textAlpha = 1.0F;
+    else if (state == STATE_DISABLED) textAlpha = 0.6F;
+    else textAlpha = 0.25F;
+
     // Draw control
     //--------------------------------------------------------------------
     if (state != STATE_DISABLED) {
-      if (active || result == 1) {
+      if (active || pressed) {
         GuiDrawRectangle(bounds, GuiGetStyle(LISTVIEW, BORDER_WIDTH),
                          Fade(GetColor(GuiGetStyle(LISTVIEW, BORDER_COLOR_PRESSED)), guiAlpha),
                          Fade(GetColor(GuiGetStyle(LISTVIEW, BASE_COLOR_PRESSED)), guiAlpha));
@@ -879,16 +974,10 @@ int GuiLabelButtonExActive(Rectangle bounds, const char *text, bool focused, boo
                          Fade(GetColor(GuiGetStyle(LISTVIEW, BASE_COLOR_FOCUSED)), guiAlpha));
       }
     }
-
-    if (active || state == STATE_PRESSED || state == STATE_FOCUSED || state == STATE_NORMAL) guiAlpha = 1.0F;
-    else if (state == STATE_DISABLED) guiAlpha = 0.6F;
-    else guiAlpha = 0.25F;
-    GuiDrawText(text, GetTextBounds(LABEL, bounds), GuiGetStyle(LABEL, TEXT_ALIGNMENT), Fade(GetColor(GuiGetStyle(LABEL, TEXT + (state*3))), guiAlpha));
-
-    if (state == STATE_FOCUSED) GuiTooltip(bounds);
+    GuiDrawText(text, GetTextBounds(LABEL, bounds), GuiGetStyle(LABEL, TEXT_ALIGNMENT), GuiFade(GetColor(GuiGetStyle(LABEL, TEXT + (state*3))), textAlpha));
     //--------------------------------------------------------------------
 
-    return result;
+    return pressed ? 1 : 0;
 }
 
 bool GuiClickOnBox(Rectangle bounds) {
